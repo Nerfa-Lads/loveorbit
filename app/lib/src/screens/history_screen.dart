@@ -438,7 +438,6 @@ class _RouteMap extends StatelessWidget {
       children: [
         TileLayer(
           urlTemplate: AppConfig.mapTileUrl,
-          subdomains: const ['a', 'b', 'c'],
         ),
         PolylineLayer(polylines: [
           Polyline(

@@ -10,6 +10,6 @@ class AppConfig {
   static const String socketUrl = backendUrl;
 
   static const String mapTileUrl =
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   static const String mapAttribution = '&copy; OpenStreetMap contributors';
 }

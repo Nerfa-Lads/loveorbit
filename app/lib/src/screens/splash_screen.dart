@@ -102,7 +102,6 @@ class OrbitMap extends StatelessWidget {
           children: [
             TileLayer(
               urlTemplate: AppConfig.mapTileUrl,
-              subdomains: const ['a', 'b', 'c'],
             ),
             if (points.length > 1)
               PolylineLayer(polylines: [

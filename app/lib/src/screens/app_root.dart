@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
-import 'connect_partner_screen.dart';
 import 'main_shell.dart';
 
 class AppRoot extends StatelessWidget {
@@ -14,9 +13,6 @@ class AppRoot extends StatelessWidget {
     final p = context.watch<AppProvider>();
     if (p.user == null) {
       return const _AuthGate();
-    }
-    if (!p.isConnected) {
-      return const ConnectPartnerScreen();
     }
     return const MainShell();
   }

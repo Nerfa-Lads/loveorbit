@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import 'connect_partner_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_screen.dart';
 
@@ -42,6 +43,39 @@ class ProfileScreen extends StatelessWidget {
                         .bodySmall
                         ?.copyWith(color: Colors.grey))),
             const SizedBox(height: 24),
+            // Partner connection banner
+            if (!p.isConnected)
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(Icons.favorite_border,
+                        color: Theme.of(context).colorScheme.primary),
+                  ),
+                  title: const Text('Connect with your partner'),
+                  subtitle: const Text('Generate a code or enter theirs'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ConnectPartnerScreen())),
+                ),
+              ),
+            if (p.isConnected)
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(Icons.favorite,
+                        color: Theme.of(context).colorScheme.primary),
+                  ),
+                  title: Text(p.partner?.displayName ?? 'Partner'),
+                  subtitle: const Text('Connected ❤️'),
+                ),
+              ),
+            const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Settings'),

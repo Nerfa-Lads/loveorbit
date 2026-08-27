@@ -4,7 +4,7 @@ class AppConfig {
   // For a real device on the same wifi as your dev machine use http://<your-lan-ip>:4000
   static const String backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://192.168.254.107:4000',
+    defaultValue: 'https://loveorbit.onrender.com',
   );
 
   static const String socketUrl = backendUrl;

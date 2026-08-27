@@ -213,6 +213,17 @@ class ApiService {
     _parse(res);
   }
 
+  // ---------- avatar ----------
+  Future<AppUser> uploadAvatar(String filePath) async {
+    final req = http.MultipartRequest('POST', _uri('/api/auth/avatar'));
+    req.headers['Authorization'] = 'Bearer ${await token ?? ''}';
+    req.files.add(await http.MultipartFile.fromPath('avatar', filePath));
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    final j = _parse(res);
+    return AppUser.fromJson(j['user']);
+  }
+
   // ---------- media ----------
   Future<Media> uploadMedia(String filePath) async {
     final req = http.MultipartRequest('POST', _uri('/api/media'));

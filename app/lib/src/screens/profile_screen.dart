@@ -1,80 +1,170 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import 'connect_partner_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _uploadingAvatar = false;
+
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      await context.read<AppProvider>().uploadAvatar(picked.path);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to upload photo. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<AppProvider>();
     final user = p.user;
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ── Avatar ───────────────────────────────────────
             Center(
-              child: CircleAvatar(
-                radius: 48,
-                backgroundImage: user?.avatarUrl != null
-                    ? NetworkImage(user!.avatarUrl!)
-                    : null,
-                child: user?.avatarUrl == null
-                    ? const Icon(Icons.person, size: 48)
-                    : null,
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: _pickAvatar,
+                    child: CircleAvatar(
+                      radius: 56,
+                      backgroundImage: user?.avatarUrl != null
+                          ? NetworkImage(user!.avatarUrl!)
+                          : null,
+                      child: _uploadingAvatar
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : user?.avatarUrl == null
+                              ? const Icon(Icons.person, size: 52)
+                              : null,
+                    ),
+                  ),
+                  // Camera badge
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _pickAvatar,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: scheme.primary,
+                        child: const Icon(Icons.camera_alt,
+                            size: 18, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
             Center(
-                child: Text(user?.displayName ?? '',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600))),
+              child: Text(
+                user?.displayName ?? '',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
             Center(
-                child: Text('@${user?.username ?? ''}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey))),
+              child: Text(
+                '@${user?.username ?? ''}',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
+              ),
+            ),
             const SizedBox(height: 24),
-            // Partner connection banner
+
+            // ── Partner card ──────────────────────────────────
             if (!p.isConnected)
               Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(Icons.favorite_border,
-                        color: Theme.of(context).colorScheme.primary),
+                    backgroundColor: scheme.primaryContainer,
+                    child: Icon(Icons.favorite_border, color: scheme.primary),
                   ),
                   title: const Text('Connect with your partner'),
                   subtitle: const Text('Generate a code or enter theirs'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ConnectPartnerScreen())),
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ConnectPartnerScreen()),
+                  ),
                 ),
               ),
             if (p.isConnected)
               Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(Icons.favorite,
-                        color: Theme.of(context).colorScheme.primary),
+                    backgroundColor: scheme.primaryContainer,
+                    child: Icon(Icons.favorite, color: scheme.primary),
                   ),
                   title: Text(p.partner?.displayName ?? 'Partner'),
                   subtitle: const Text('Connected ❤️'),
                 ),
               ),
+
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.settings_outlined),

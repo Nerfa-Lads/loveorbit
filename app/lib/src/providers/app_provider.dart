@@ -82,6 +82,11 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> uploadAvatar(String filePath) async {
+    user = await _api.uploadAvatar(filePath);
+    notifyListeners();
+  }
+
   Future<void> deleteAccount() async {
     await _api.deleteAccount();
     await logout();

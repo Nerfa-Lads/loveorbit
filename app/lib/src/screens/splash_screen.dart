@@ -45,17 +45,54 @@ class OrbitMap extends StatelessWidget {
   final LatLng? center;
   final double zoom;
   final double height;
+  // Optional separate marker for "my location" (shown in green)
+  // and "partner location" (shown in primary color).
+  // If myLocation is set, it's shown as a distinct green pin.
+  final LatLng? myLocation;
+  final LatLng? partnerLocation;
+
   const OrbitMap({
     super.key,
     required this.points,
     this.center,
     this.zoom = 14,
     this.height = 220,
+    this.myLocation,
+    this.partnerLocation,
   });
 
   @override
   Widget build(BuildContext context) {
-    final c = center ?? (points.isNotEmpty ? points.last : const LatLng(0, 0));
+    final scheme = Theme.of(context).colorScheme;
+    final c = center ??
+        myLocation ??
+        (points.isNotEmpty ? points.first : const LatLng(0, 0));
+
+    final markers = <Marker>[
+      if (myLocation != null)
+        Marker(
+          point: myLocation!,
+          width: 44,
+          height: 44,
+          child: const Icon(Icons.my_location, color: Colors.green, size: 36),
+        ),
+      if (partnerLocation != null)
+        Marker(
+          point: partnerLocation!,
+          width: 44,
+          height: 44,
+          child: Icon(Icons.location_on, color: scheme.primary, size: 40),
+        ),
+      // fallback: single marker from points list
+      if (myLocation == null && partnerLocation == null && points.isNotEmpty)
+        Marker(
+          point: points.last,
+          width: 44,
+          height: 44,
+          child: Icon(Icons.location_on, color: scheme.primary, size: 40),
+        ),
+    ];
+
     return SizedBox(
       height: height,
       child: ClipRRect(
@@ -67,23 +104,14 @@ class OrbitMap extends StatelessWidget {
               urlTemplate: AppConfig.mapTileUrl,
               subdomains: const ['a', 'b', 'c'],
             ),
-            if (points.isNotEmpty)
+            if (points.length > 1)
               PolylineLayer(polylines: [
                 Polyline(
                     points: points,
                     strokeWidth: 4,
-                    color: Theme.of(context).colorScheme.primary),
+                    color: scheme.primary.withOpacity(0.6)),
               ]),
-            if (points.isNotEmpty)
-              MarkerLayer(markers: [
-                Marker(
-                  point: points.last,
-                  width: 40,
-                  height: 40,
-                  child: Icon(Icons.location_on,
-                      color: Theme.of(context).colorScheme.primary, size: 40),
-                ),
-              ]),
+            if (markers.isNotEmpty) MarkerLayer(markers: markers),
           ],
         ),
       ),

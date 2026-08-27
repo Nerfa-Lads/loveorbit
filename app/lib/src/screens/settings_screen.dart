@@ -55,92 +55,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             // ── Account ──────────────────────────────────────
-            _SectionHeader('Account'),
+            const _SectionHeader('Account'),
             const SizedBox(height: 8),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                children: [
-                  Row(children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage: p.user?.avatarUrl != null
-                          ? NetworkImage(p.user!.avatarUrl!)
-                          : null,
-                      child: p.user?.avatarUrl == null
-                          ? const Icon(Icons.person)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(p.user?.displayName ?? '',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        Text('@${p.user?.username ?? ''}',
-                            style: TextStyle(
-                                color: Colors.grey.shade600, fontSize: 12)),
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage: p.user?.avatarUrl != null
+                              ? NetworkImage(p.user!.avatarUrl!)
+                              : null,
+                          child: p.user?.avatarUrl == null
+                              ? const Icon(Icons.person)
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.user?.displayName ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                            Text('@${p.user?.username ?? ''}',
+                                style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 12)),
+                          ],
+                        ),
                       ],
                     ),
-                  ]),
-                  const SizedBox(height: 16),
-                  Text('Display name',
-                      style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                            hintText: 'Your display name'),
-                      ),
+                    const SizedBox(height: 16),
+                    Text('Display name',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                                hintText: 'Your display name'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: _saving ? null : _save,
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : const Text('Save'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Text('Save'),
-                    ),
-                  ]),
-                ],
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // ── Theme ─────────────────────────────────────────
-            _SectionHeader('Appearance'),
+            // ── Appearance ────────────────────────────────────
+            const _SectionHeader('Appearance'),
             const SizedBox(height: 8),
-            Card(
+            const Card(
               child: ListTile(
-                leading: Icon(
-                  Theme.of(context).brightness == Brightness.dark
-                      ? Icons.dark_mode
-                      : Icons.light_mode,
-                  color: scheme.primary,
-                ),
-                title: const Text('Theme'),
-                subtitle: Text(
-                  Theme.of(context).brightness == Brightness.dark
-                      ? 'Dark mode'
-                      : 'Light mode',
-                ),
+                leading: Icon(Icons.brightness_auto),
+                title: Text('Theme'),
+                subtitle: Text('Follows your system setting'),
                 trailing: Text('System',
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
               ),
             ),
 
             const SizedBox(height: 24),
 
             // ── Partner ───────────────────────────────────────
-            _SectionHeader('Partner & Connection'),
+            const _SectionHeader('Partner & Connection'),
             const SizedBox(height: 8),
             Card(
               child: Column(
@@ -153,7 +150,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? IconButton(
                             icon: const Icon(Icons.copy, size: 18),
                             onPressed: () {
-                              // copy to clipboard handled separately
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Code copied!')),
                               );
@@ -174,10 +170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
 
             // ── About ─────────────────────────────────────────
-            _SectionHeader('About'),
+            const _SectionHeader('About'),
             const SizedBox(height: 8),
-            Card(
-              child: const ListTile(
+            const Card(
+              child: ListTile(
                 leading: Icon(Icons.favorite, color: Color(0xFFE26D8C)),
                 title: Text('LoveOrbit'),
                 subtitle:

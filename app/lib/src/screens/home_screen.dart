@@ -30,11 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_locLoading) return;
     setState(() => _locLoading = true);
     final pt = await LocationService.instance.currentPoint();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _myLocation = pt;
         _locLoading = false;
       });
+    }
   }
 
   @override

@@ -109,7 +109,7 @@ class OrbitMap extends StatelessWidget {
                 Polyline(
                     points: points,
                     strokeWidth: 4,
-                    color: scheme.primary.withOpacity(0.6)),
+                    color: scheme.primary.withValues(alpha: 0.6)),
               ]),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),
           ],

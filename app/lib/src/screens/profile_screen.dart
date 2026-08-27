@@ -48,20 +48,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (picked == null) return;
 
+    // Capture before any further async gaps
+    final provider = context.read<AppProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() => _uploadingAvatar = true);
     try {
-      await context.read<AppProvider>().uploadAvatar(picked.path);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture updated!')),
-        );
-      }
+      await provider.uploadAvatar(picked.path);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Profile picture updated!')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to upload photo. Try again.')),
-        );
-      }
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to upload photo. Try again.')),
+      );
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }

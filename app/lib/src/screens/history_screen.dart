@@ -241,7 +241,6 @@ class _DayCardState extends State<_DayCard> {
     final pts =
         widget.points.map((p) => LatLng(p.latitude, p.longitude)).toList();
     final km = _distanceKm;
-    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -256,7 +255,7 @@ class _DayCardState extends State<_DayCard> {
                 children: [
                   CircleAvatar(
                     radius: 22,
-                    backgroundColor: widget.color.withOpacity(0.15),
+                    backgroundColor: widget.color.withValues(alpha: 0.15),
                     child: Icon(Icons.route, color: widget.color),
                   ),
                   const SizedBox(width: 14),
@@ -443,7 +442,9 @@ class _RouteMap extends StatelessWidget {
         ),
         PolylineLayer(polylines: [
           Polyline(
-              points: points, strokeWidth: 4, color: color.withOpacity(0.85)),
+              points: points,
+              strokeWidth: 4,
+              color: color.withValues(alpha: 0.85)),
         ]),
         MarkerLayer(markers: [
           Marker(

@@ -1,13 +1,13 @@
 class AppUser {
   final String id;
-  final String email;
+  final String username;
   final String displayName;
   final String? avatarUrl;
   final String? coupleId;
 
   AppUser({
     required this.id,
-    required this.email,
+    required this.username,
     required this.displayName,
     this.avatarUrl,
     this.coupleId,
@@ -15,7 +15,7 @@ class AppUser {
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
         id: j['id'] as String,
-        email: j['email'] as String,
+        username: j['username'] as String? ?? '',
         displayName: j['display_name'] as String? ?? '',
         avatarUrl: j['avatar_url'] as String?,
         coupleId: j['couple_id'] as String?,

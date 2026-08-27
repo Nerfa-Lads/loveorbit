@@ -36,14 +36,14 @@ class ApiService {
 
   // ---------- auth ----------
   Future<({String token, AppUser user})> register({
-    required String email,
+    required String username,
     required String password,
     required String displayName,
   }) async {
     final res = await http.post(_uri('/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': email,
+          'username': username,
           'password': password,
           'display_name': displayName,
         }));
@@ -53,40 +53,45 @@ class ApiService {
   }
 
   Future<({String token, AppUser user})> login({
-    required String email,
+    required String username,
     required String password,
   }) async {
     final res = await http.post(_uri('/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}));
+        body: jsonEncode({'username': username, 'password': password}));
     final j = _parse(res);
     await saveToken(j['token'] as String);
     return (token: j['token'] as String, user: AppUser.fromJson(j['user']));
   }
 
   Future<AppUser> me() async {
-    final res = await http.get(_uri('/api/auth/me'), headers: await _authHeaders);
+    final res =
+        await http.get(_uri('/api/auth/me'), headers: await _authHeaders);
     final j = _parse(res);
     return AppUser.fromJson(j['user']);
   }
 
-  Future<AppUser> updateProfile({String? displayName, String? avatarUrl}) async {
+  Future<AppUser> updateProfile(
+      {String? displayName, String? avatarUrl}) async {
     final res = await http.put(_uri('/api/auth/profile'),
         headers: await _authHeaders,
-        body: jsonEncode({'display_name': displayName, 'avatar_url': avatarUrl}));
+        body:
+            jsonEncode({'display_name': displayName, 'avatar_url': avatarUrl}));
     final j = _parse(res);
     return AppUser.fromJson(j['user']);
   }
 
   Future<void> deleteAccount() async {
-    final res = await http.delete(_uri('/api/auth/account'), headers: await _authHeaders);
+    final res = await http.delete(_uri('/api/auth/account'),
+        headers: await _authHeaders);
     _parse(res);
     await clearToken();
   }
 
   // ---------- couples ----------
   Future<Couple> createCouple() async {
-    final res = await http.post(_uri('/api/couples/create'), headers: await _authHeaders);
+    final res = await http.post(_uri('/api/couples/create'),
+        headers: await _authHeaders);
     final j = _parse(res);
     return Couple.fromJson(j['couple']);
   }
@@ -99,15 +104,18 @@ class ApiService {
   }
 
   Future<({Couple? couple, Partner? partner})> myCouple() async {
-    final res = await http.get(_uri('/api/couples/me'), headers: await _authHeaders);
+    final res =
+        await http.get(_uri('/api/couples/me'), headers: await _authHeaders);
     final j = _parse(res);
     final couple = j['couple'] == null ? null : Couple.fromJson(j['couple']);
-    final partner = j['partner'] == null ? null : Partner.fromJson(j['partner']);
+    final partner =
+        j['partner'] == null ? null : Partner.fromJson(j['partner']);
     return (couple: couple, partner: partner);
   }
 
   Future<void> disconnect() async {
-    final res = await http.post(_uri('/api/couples/disconnect'), headers: await _authHeaders);
+    final res = await http.post(_uri('/api/couples/disconnect'),
+        headers: await _authHeaders);
     _parse(res);
   }
 
@@ -115,31 +123,37 @@ class ApiService {
   Future<List<String>> uploadLocations(List<LocationPoint> points) async {
     final res = await http.post(_uri('/api/locations'),
         headers: await _authHeaders,
-        body: jsonEncode({'points': points.map((p) => p.toApiJson()).toList()}));
+        body:
+            jsonEncode({'points': points.map((p) => p.toApiJson()).toList()}));
     final j = _parse(res);
     return List<String>.from(j['saved_uids'] as List? ?? []);
   }
 
-  Future<List<LocationPoint>> myLocations({DateTime? from, DateTime? to}) async {
+  Future<List<LocationPoint>> myLocations(
+      {DateTime? from, DateTime? to}) async {
     final q = <String, String>{};
     if (from != null) q['from'] = from.toUtc().toIso8601String();
     if (to != null) q['to'] = to.toUtc().toIso8601String();
-    final res = await http.get(_uri('/api/locations/me?${_query(q)}'), headers: await _authHeaders);
+    final res = await http.get(_uri('/api/locations/me?${_query(q)}'),
+        headers: await _authHeaders);
     final j = _parse(res);
     return (j['points'] as List).map((e) => LocationPoint.fromJson(e)).toList();
   }
 
-  Future<List<LocationPoint>> partnerLocations({DateTime? from, DateTime? to}) async {
+  Future<List<LocationPoint>> partnerLocations(
+      {DateTime? from, DateTime? to}) async {
     final q = <String, String>{};
     if (from != null) q['from'] = from.toUtc().toIso8601String();
     if (to != null) q['to'] = to.toUtc().toIso8601String();
-    final res = await http.get(_uri('/api/locations/partner?${_query(q)}'), headers: await _authHeaders);
+    final res = await http.get(_uri('/api/locations/partner?${_query(q)}'),
+        headers: await _authHeaders);
     final j = _parse(res);
     return (j['points'] as List).map((e) => LocationPoint.fromJson(e)).toList();
   }
 
   Future<LocationPoint?> partnerLatest() async {
-    final res = await http.get(_uri('/api/locations/partner/latest'), headers: await _authHeaders);
+    final res = await http.get(_uri('/api/locations/partner/latest'),
+        headers: await _authHeaders);
     final j = _parse(res);
     return j['point'] == null ? null : LocationPoint.fromJson(j['point']);
   }
@@ -148,14 +162,19 @@ class ApiService {
     final q = <String, String>{};
     if (from != null) q['from'] = from.toUtc().toIso8601String();
     if (to != null) q['to'] = to.toUtc().toIso8601String();
-    final res = await http.delete(_uri('/api/locations/me?${_query(q)}'), headers: await _authHeaders);
+    final res = await http.delete(_uri('/api/locations/me?${_query(q)}'),
+        headers: await _authHeaders);
     _parse(res);
   }
 
   Future<({bool sharing, bool paused})> getSharing() async {
-    final res = await http.get(_uri('/api/locations/sharing'), headers: await _authHeaders);
+    final res = await http.get(_uri('/api/locations/sharing'),
+        headers: await _authHeaders);
     final j = _parse(res);
-    return (sharing: j['sharing'] as bool? ?? false, paused: j['paused'] as bool? ?? false);
+    return (
+      sharing: j['sharing'] as bool? ?? false,
+      paused: j['paused'] as bool? ?? false
+    );
   }
 
   Future<void> setSharing({required bool sharing, required bool paused}) async {
@@ -166,10 +185,12 @@ class ApiService {
   }
 
   // ---------- messages ----------
-  Future<List<ChatMessage>> messages({int limit = 100, DateTime? before}) async {
+  Future<List<ChatMessage>> messages(
+      {int limit = 100, DateTime? before}) async {
     final q = <String, String>{'limit': limit.toString()};
     if (before != null) q['before'] = before.toUtc().toIso8601String();
-    final res = await http.get(_uri('/api/messages?${_query(q)}'), headers: await _authHeaders);
+    final res = await http.get(_uri('/api/messages?${_query(q)}'),
+        headers: await _authHeaders);
     final j = _parse(res);
     return (j['messages'] as List).map((e) => ChatMessage.fromJson(e)).toList();
   }
@@ -177,9 +198,12 @@ class ApiService {
   Future<List<String>> sendMessages(List<ChatMessage> msgs) async {
     final res = await http.post(_uri('/api/messages'),
         headers: await _authHeaders,
-        body: jsonEncode({'messages': msgs.map((m) => m.toApiJson()).toList()}));
+        body:
+            jsonEncode({'messages': msgs.map((m) => m.toApiJson()).toList()}));
     final j = _parse(res);
-    return (j['saved'] as List? ?? []).map((e) => e['client_uid'] as String).toList();
+    return (j['saved'] as List? ?? [])
+        .map((e) => e['client_uid'] as String)
+        .toList();
   }
 
   Future<void> markStatus(List<String> ids, String status) async {
@@ -201,7 +225,8 @@ class ApiService {
   }
 
   // ---------- devices ----------
-  Future<void> registerDevice(String token, {String platform = 'android'}) async {
+  Future<void> registerDevice(String token,
+      {String platform = 'android'}) async {
     final res = await http.post(_uri('/api/devices'),
         headers: await _authHeaders,
         body: jsonEncode({'token': token, 'platform': platform}));
@@ -209,7 +234,9 @@ class ApiService {
   }
 
   // ---------- helpers ----------
-  String _query(Map<String, String> q) => q.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+  String _query(Map<String, String> q) => q.entries
+      .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+      .join('&');
 
   dynamic _parse(http.Response res) {
     final body = res.body.isEmpty ? '{}' : res.body;

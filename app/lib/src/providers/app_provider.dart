@@ -43,8 +43,9 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ---------- auth ----------
-  Future<void> register(String email, String password, String name) async {
-    final r = await _api.register(email: email, password: password, displayName: name);
+  Future<void> register(String username, String password, String name) async {
+    final r = await _api.register(
+        username: username, password: password, displayName: name);
     user = r.user;
     _myId = user!.id;
     SyncService.instance.init(token: r.token, onIncomingMessage: _onIncoming);
@@ -52,8 +53,8 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async {
-    final r = await _api.login(email: email, password: password);
+  Future<void> login(String username, String password) async {
+    final r = await _api.login(username: username, password: password);
     user = r.user;
     _myId = user!.id;
     await refreshCouple();

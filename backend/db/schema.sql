@@ -10,7 +10,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- for gen_random_uuid()
 -- ============================================================
 CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         TEXT NOT NULL UNIQUE,
+  username      TEXT NOT NULL UNIQUE,
+  email         TEXT,
   password_hash TEXT NOT NULL,                       -- bcrypt
   display_name  TEXT NOT NULL,
   avatar_url    TEXT,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_users_couple_id ON users (couple_id) WHERE couple_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 
 -- ============================================================
 -- couples

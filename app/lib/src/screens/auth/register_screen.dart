@@ -12,8 +12,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _name = TextEditingController();
-  final _email = TextEditingController();
+  final _displayName = TextEditingController();
+  final _username = TextEditingController();
   final _pass = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -21,9 +21,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _friendlyError(Object e) {
     if (e is ApiException) {
       switch (e.message) {
-        case 'email already registered':
-          return 'That email is already in use. Try logging in instead.';
-        case 'email, password and display_name are required':
+        case 'username already taken':
+          return 'That username is already taken. Please choose another one.';
+        case 'username too short':
+          return 'Username must be at least 3 characters.';
+        case 'username invalid characters':
+          return 'Username can only contain letters, numbers, dots and underscores.';
+        case 'username, password and display_name are required':
           return 'Please fill in all fields.';
         default:
           return 'Something went wrong. Please try again.';
@@ -32,7 +36,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final msg = e.toString().toLowerCase();
     if (msg.contains('socketexception') ||
         msg.contains('connection refused') ||
-        msg.contains('network') ||
         msg.contains('failed host lookup')) {
       return 'Can\'t reach the server. Check your internet connection.';
     }
@@ -40,12 +43,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    final name = _name.text.trim();
-    final email = _email.text.trim();
+    final name = _displayName.text.trim();
+    final username = _username.text.trim();
     final pass = _pass.text;
 
-    if (name.isEmpty || email.isEmpty || pass.isEmpty) {
+    if (name.isEmpty || username.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Please fill in all fields.');
+      return;
+    }
+    if (username.length < 3) {
+      setState(() => _error = 'Username must be at least 3 characters.');
+      return;
+    }
+    if (!RegExp(r'^[a-zA-Z0-9_.]+$').hasMatch(username)) {
+      setState(() => _error =
+          'Username can only contain letters, numbers, dots and underscores.');
       return;
     }
     if (pass.length < 6) {
@@ -58,13 +70,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
     try {
-      await context.read<AppProvider>().register(email, pass, name);
+      await context.read<AppProvider>().register(username, pass, name);
     } catch (e) {
       setState(() => _error = _friendlyError(e));
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -94,23 +104,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ?.copyWith(color: Colors.grey)),
               const SizedBox(height: 32),
               TextField(
-                controller: _name,
+                controller: _displayName,
                 textInputAction: TextInputAction.next,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Display name',
-                  prefixIcon: Icon(Icons.person_outline),
+                  hintText: 'How your partner sees you',
+                  prefixIcon: Icon(Icons.badge_outlined),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
+                controller: _username,
                 textInputAction: TextInputAction.next,
                 autocorrect: false,
+                enableSuggestions: false,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  labelText: 'Username',
+                  hintText: 'Letters, numbers, . and _',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 12),

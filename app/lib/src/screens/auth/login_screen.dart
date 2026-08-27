@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
+  final _username = TextEditingController();
   final _pass = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -20,10 +20,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String _friendlyError(Object e) {
     if (e is ApiException) {
       switch (e.message) {
-        case 'invalid credentials':
-          return 'Email or password is incorrect. Please try again.';
-        case 'email, password and display_name are required':
-          return 'Please fill in all fields.';
+        case 'account not found':
+          return 'No account found with that username. Did you mean to register?';
+        case 'wrong password':
+          return 'Incorrect password. Please try again.';
+        case 'username and password are required':
+          return 'Please enter your username and password.';
         default:
           return 'Something went wrong. Please try again.';
       }
@@ -31,7 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final msg = e.toString().toLowerCase();
     if (msg.contains('socketexception') ||
         msg.contains('connection refused') ||
-        msg.contains('network') ||
         msg.contains('failed host lookup')) {
       return 'Can\'t reach the server. Check your internet connection.';
     }
@@ -39,11 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    final email = _email.text.trim();
+    final username = _username.text.trim();
     final pass = _pass.text;
 
-    if (email.isEmpty || pass.isEmpty) {
-      setState(() => _error = 'Please enter your email and password.');
+    if (username.isEmpty || pass.isEmpty) {
+      setState(() => _error = 'Please enter your username and password.');
       return;
     }
 
@@ -52,13 +53,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await context.read<AppProvider>().login(email, pass);
+      await context.read<AppProvider>().login(username, pass);
     } catch (e) {
       setState(() => _error = _friendlyError(e));
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -88,13 +87,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ?.copyWith(color: Colors.grey)),
               const SizedBox(height: 32),
               TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
+                controller: _username,
                 textInputAction: TextInputAction.next,
                 autocorrect: false,
+                enableSuggestions: false,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  labelText: 'Username',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 12),

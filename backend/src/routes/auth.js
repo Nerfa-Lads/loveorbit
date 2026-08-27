@@ -1,35 +1,19 @@
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
 import multer from 'multer';
-import path from 'node:path';
-import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { query } from '../db/index.js';
 import { signToken, auth } from '../middleware/auth.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(__dirname, '../../uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
-
+// Store avatar in memory, convert to base64 data URL → save in DB.
+// This avoids ephemeral disk issues on free hosting (Render, Railway, etc.)
 const avatarUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '.jpg') || '.jpg';
-      cb(null, `avatar-${req.user.id}-${Date.now()}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!/^image\//.test(file.mimetype || '')) return cb(new Error('images_only'));
     cb(null, true);
   },
 });
-
-function publicUrl(filename) {
-  const base = process.env.PUBLIC_BASE_URL || 'http://localhost:4000';
-  return `${base}/uploads/${filename}`;
-}
 
 const router = Router();
 
@@ -118,15 +102,15 @@ router.delete('/account', auth, async (req, res) => {
   }
 });
 
-// POST /api/auth/avatar  — upload profile picture
+// POST /api/auth/avatar  — upload profile picture (stored as base64 data URL)
 router.post('/avatar', auth, avatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'no_file' });
-    const url = publicUrl(req.file.filename);
+    const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const { rows } = await query(
       `UPDATE users SET avatar_url = $1 WHERE id = $2
        RETURNING id, username, display_name, avatar_url, couple_id`,
-      [url, req.user.id],
+      [dataUrl, req.user.id],
     );
     res.json({ user: rows[0] });
   } catch (e) {

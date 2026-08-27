@@ -18,7 +18,7 @@ export async function auth(req, res, next) {
     if (!token) return res.status(401).json({ error: 'unauthorized' });
 
     const payload = jwt.verify(token, SECRET);
-    const { rows } = await query('SELECT id, email, display_name, avatar_url, couple_id FROM users WHERE id = $1', [payload.sub]);
+    const { rows } = await query('SELECT id, username, display_name, avatar_url, couple_id FROM users WHERE id = $1', [payload.sub]);
     if (rows.length === 0) return res.status(401).json({ error: 'unauthorized' });
 
     req.user = rows[0];

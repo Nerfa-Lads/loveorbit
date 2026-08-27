@@ -1,0 +1,25 @@
+# Secrets — never commit
+backend/.env
+
+# Node
+node_modules/
+backend/node_modules/
+npm-debug.log*
+
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/pubspec.lock
+
+# Android
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+*.keystore
+*.jks
+
+# OS
+.DS_Store
+Thumbs.db

@@ -47,6 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       imageQuality: 85,
     );
     if (picked == null) return;
+    if (!mounted) return;
 
     // Capture before any further async gaps
     final provider = context.read<AppProvider>();

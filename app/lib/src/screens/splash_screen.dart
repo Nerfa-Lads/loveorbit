@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -39,17 +41,92 @@ class SplashScreen extends StatelessWidget {
   }
 }
 
-// Small reusable map widget used across screens.
+// ── Avatar map marker ─────────────────────────────────────────
+class _AvatarMarker extends StatelessWidget {
+  final String? avatarUrl;
+  final Color borderColor;
+  final IconData fallbackIcon;
+
+  const _AvatarMarker({
+    this.avatarUrl,
+    required this.borderColor,
+    required this.fallbackIcon,
+  });
+
+  ImageProvider? _imageProvider() {
+    if (avatarUrl == null || avatarUrl!.isEmpty) return null;
+    if (avatarUrl!.startsWith('data:image')) {
+      try {
+        final comma = avatarUrl!.indexOf(',');
+        final bytes = base64Decode(avatarUrl!.substring(comma + 1));
+        return MemoryImage(bytes);
+      } catch (_) {
+        return null;
+      }
+    }
+    return NetworkImage(avatarUrl!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final img = _imageProvider();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 2.5),
+            color: borderColor.withValues(alpha: 0.15),
+            image: img != null
+                ? DecorationImage(image: img, fit: BoxFit.cover)
+                : null,
+          ),
+          child: img == null
+              ? Icon(fallbackIcon, color: borderColor, size: 22)
+              : null,
+        ),
+        // Small triangle pointer
+        CustomPaint(
+          size: const Size(12, 6),
+          painter: _TrianglePainter(color: borderColor),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  const _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter old) => old.color != color;
+}
+
+// ── Reusable map widget ───────────────────────────────────────
 class OrbitMap extends StatelessWidget {
   final List<LatLng> points;
   final LatLng? center;
   final double zoom;
   final double height;
-  // Optional separate marker for "my location" (shown in green)
-  // and "partner location" (shown in primary color).
-  // If myLocation is set, it's shown as a distinct green pin.
   final LatLng? myLocation;
   final LatLng? partnerLocation;
+  final String? myAvatarUrl;
+  final String? partnerAvatarUrl;
 
   const OrbitMap({
     super.key,
@@ -59,6 +136,8 @@ class OrbitMap extends StatelessWidget {
     this.height = 220,
     this.myLocation,
     this.partnerLocation,
+    this.myAvatarUrl,
+    this.partnerAvatarUrl,
   });
 
   @override
@@ -72,18 +151,25 @@ class OrbitMap extends StatelessWidget {
       if (myLocation != null)
         Marker(
           point: myLocation!,
-          width: 44,
-          height: 44,
-          child: const Icon(Icons.my_location, color: Colors.green, size: 36),
+          width: 50,
+          height: 56,
+          child: _AvatarMarker(
+            avatarUrl: myAvatarUrl,
+            borderColor: Colors.green,
+            fallbackIcon: Icons.person,
+          ),
         ),
       if (partnerLocation != null)
         Marker(
           point: partnerLocation!,
-          width: 44,
-          height: 44,
-          child: Icon(Icons.location_on, color: scheme.primary, size: 40),
+          width: 50,
+          height: 56,
+          child: _AvatarMarker(
+            avatarUrl: partnerAvatarUrl,
+            borderColor: scheme.primary,
+            fallbackIcon: Icons.favorite,
+          ),
         ),
-      // fallback: single marker from points list
       if (myLocation == null && partnerLocation == null && points.isNotEmpty)
         Marker(
           point: points.last,
@@ -108,7 +194,6 @@ class OrbitMap extends StatelessWidget {
                 },
               ),
             ),
-            // Road labels on top of satellite
             TileLayer(
               urlTemplate: AppConfig.mapLabelUrl,
               tileProvider: NetworkTileProvider(
@@ -120,9 +205,10 @@ class OrbitMap extends StatelessWidget {
             if (points.length > 1)
               PolylineLayer(polylines: [
                 Polyline(
-                    points: points,
-                    strokeWidth: 4,
-                    color: scheme.primary.withValues(alpha: 0.6)),
+                  points: points,
+                  strokeWidth: 4,
+                  color: scheme.primary.withValues(alpha: 0.6),
+                ),
               ]),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),
           ],

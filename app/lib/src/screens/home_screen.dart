@@ -114,6 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 partnerLocation: partnerPt != null
                     ? LatLng(partnerPt.latitude, partnerPt.longitude)
                     : null,
+                myAvatarUrl: p.user?.avatarUrl,
+                partnerAvatarUrl: p.partner?.avatarUrl,
               ),
 
             const SizedBox(height: 12),

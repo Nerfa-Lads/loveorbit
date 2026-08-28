@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
@@ -13,67 +12,36 @@ import 'home_pin_picker_screen.dart';
 import 'places_screen.dart';
 import 'splash_screen.dart' show OrbitMap;
 
-// ── Reverse geocode via Nominatim ─────────────────────────────
+// ── Reverse geocode using native platform geocoder ────────────
+// Android uses Google's geocoding service — accurate for PH barangays.
 Future<String> _placeName(double lat, double lng) async {
   try {
-    final uri = Uri.parse(
-      'https://nominatim.openstreetmap.org/reverse'
-      '?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
-    );
-    final res = await http.get(uri, headers: {
-      'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
-    }).timeout(const Duration(seconds: 6));
-    if (res.statusCode == 200) {
-      final j = jsonDecode(res.body) as Map<String, dynamic>;
-      final addr = j['address'] as Map<String, dynamic>? ?? {};
+    final placemarks = await placemarkFromCoordinates(lat, lng)
+        .timeout(const Duration(seconds: 8));
+    if (placemarks.isEmpty) return '';
+    final p = placemarks.first;
 
-      // Priority order — most specific first:
-      // barangay → suburb/village → road → municipality → city
-      final barangay = addr['quarter'] as String? ??
-          addr['neighbourhood'] as String? ??
-          addr['hamlet'] as String? ??
-          addr['isolated_dwelling'] as String? ??
-          addr['city_district'] as String? ??
-          '';
+    // Build label: subLocality (barangay) → locality (city/municipality)
+    // → subAdministrativeArea (district) → administrativeArea (province)
+    final parts = <String>[
+      if ((p.subLocality ?? '').isNotEmpty) p.subLocality!,
+      if ((p.locality ?? '').isNotEmpty) p.locality!,
+      if ((p.subAdministrativeArea ?? '').isNotEmpty &&
+          p.subAdministrativeArea != p.locality)
+        p.subAdministrativeArea!,
+    ].take(3).toList();
 
-      final village = addr['village'] as String? ??
-          addr['suburb'] as String? ??
-          addr['town'] as String? ??
-          '';
+    if (parts.isNotEmpty) return parts.join(', ');
 
-      final municipality = addr['municipality'] as String? ??
-          addr['city'] as String? ??
-          addr['county'] as String? ??
-          addr['state_district'] as String? ??
-          '';
-
-      final road = addr['road'] as String? ??
-          addr['pedestrian'] as String? ??
-          addr['footway'] as String? ??
-          addr['path'] as String? ??
-          '';
-
-      // Build label: prefer barangay + municipality, fall back to road + village
-      final parts = <String>[
-        if (barangay.isNotEmpty) barangay,
-        if (village.isNotEmpty && village != barangay) village,
-        if (municipality.isNotEmpty && municipality != village) municipality,
-        if (barangay.isEmpty && road.isNotEmpty) road,
-      ].take(3).toList();
-
-      if (parts.isNotEmpty) return parts.join(', ');
-
-      // Last resort — first 3 comma-separated parts of display_name
-      return j['display_name']
-              ?.toString()
-              .split(',')
-              .take(3)
-              .join(',')
-              .trim() ??
-          '';
-    }
-  } catch (_) {}
-  return '';
+    // fallback to thoroughfare (street) + locality
+    final fallback = <String>[
+      if ((p.thoroughfare ?? '').isNotEmpty) p.thoroughfare!,
+      if ((p.locality ?? '').isNotEmpty) p.locality!,
+    ];
+    return fallback.join(', ');
+  } catch (_) {
+    return '';
+  }
 }
 
 // ── Distance helper ───────────────────────────────────────────
@@ -291,6 +259,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   myAvatarUrl: p.user?.avatarUrl,
                   partnerAvatarUrl: p.partner?.avatarUrl,
                   myBorderColor: p.pinBorderColor,
+                  myLabel: 'You',
+                  partnerLabel: partner?.displayName,
                   myHomePin: hasMyHome ? LatLng(p.homeLat!, p.homeLng!) : null,
                   partnerHomePin: hasPartnerHome
                       ? LatLng(p.partnerHomeLat!, p.partnerHomeLng!)

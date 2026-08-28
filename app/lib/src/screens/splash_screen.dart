@@ -50,11 +50,13 @@ class _AvatarMarker extends StatelessWidget {
   final String? avatarUrl;
   final Color borderColor;
   final IconData fallbackIcon;
+  final String? label; // optional name shown above the pin
 
   const _AvatarMarker({
     this.avatarUrl,
     required this.borderColor,
     required this.fallbackIcon,
+    this.label,
   });
 
   ImageProvider? _imageProvider() {
@@ -77,6 +79,33 @@ class _AvatarMarker extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // ── Name label above the avatar ──────────────────
+        if (label != null && label!.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: borderColor,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: borderColor.withValues(alpha: 0.45),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: Text(
+              label!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        // ── Avatar circle ────────────────────────────────
         Container(
           width: 42,
           height: 42,
@@ -92,7 +121,7 @@ class _AvatarMarker extends StatelessWidget {
               ? Icon(fallbackIcon, color: borderColor, size: 22)
               : null,
         ),
-        // Small triangle pointer
+        // ── Triangle pointer ─────────────────────────────
         CustomPaint(
           size: const Size(12, 6),
           painter: _TrianglePainter(color: borderColor),
@@ -199,6 +228,8 @@ class OrbitMap extends StatelessWidget {
   final Color? myBorderColor;
   final LatLng? myHomePin;
   final LatLng? partnerHomePin;
+  final String? myLabel;
+  final String? partnerLabel;
 
   /// My named saved places — shown as labelled pins on the map.
   final List<NamedPin> myPlaces;
@@ -222,6 +253,8 @@ class OrbitMap extends StatelessWidget {
     this.myBorderColor,
     this.myHomePin,
     this.partnerHomePin,
+    this.myLabel,
+    this.partnerLabel,
     this.myPlaces = const [],
     this.partnerPlaces = const [],
     this.todayJourney = const [],
@@ -240,23 +273,25 @@ class OrbitMap extends StatelessWidget {
       if (myLocation != null)
         Marker(
           point: myLocation!,
-          width: 50,
-          height: 56,
+          width: 80,
+          height: 76,
           child: _AvatarMarker(
             avatarUrl: myAvatarUrl,
             borderColor: myPinColor,
             fallbackIcon: Icons.person,
+            label: myLabel,
           ),
         ),
       if (partnerLocation != null)
         Marker(
           point: partnerLocation!,
-          width: 50,
-          height: 56,
+          width: 80,
+          height: 76,
           child: _AvatarMarker(
             avatarUrl: partnerAvatarUrl,
             borderColor: scheme.primary,
             fallbackIcon: Icons.favorite,
+            label: partnerLabel,
           ),
         ),
       if (myLocation == null && partnerLocation == null && points.isNotEmpty)

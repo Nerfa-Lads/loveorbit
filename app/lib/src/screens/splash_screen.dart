@@ -108,6 +108,15 @@ class OrbitMap extends StatelessWidget {
                 },
               ),
             ),
+            // Road labels on top of satellite
+            TileLayer(
+              urlTemplate: AppConfig.mapLabelUrl,
+              tileProvider: NetworkTileProvider(
+                headers: const {
+                  'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+                },
+              ),
+            ),
             if (points.length > 1)
               PolylineLayer(polylines: [
                 Polyline(

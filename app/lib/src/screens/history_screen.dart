@@ -444,6 +444,15 @@ class _RouteMap extends StatelessWidget {
             },
           ),
         ),
+        // Road labels on top of satellite
+        TileLayer(
+          urlTemplate: AppConfig.mapLabelUrl,
+          tileProvider: NetworkTileProvider(
+            headers: const {
+              'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+            },
+          ),
+        ),
         PolylineLayer(polylines: [
           Polyline(
               points: points,

@@ -10,6 +10,10 @@ class AppConfig {
   static const String socketUrl = backendUrl;
 
   static const String mapTileUrl =
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+  // Street overlay on top of satellite (optional, for road labels)
+  static const String mapLabelUrl =
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
   static const String mapAttribution = '&copy; OpenStreetMap contributors';
 }

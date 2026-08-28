@@ -660,10 +660,10 @@ class _MapStylePicker extends StatelessWidget {
                         height: 110,
                         child: IgnorePointer(
                           child: FlutterMap(
-                            options: MapOptions(
+                            options: const MapOptions(
                               initialCenter: _previewCenter,
                               initialZoom: 13,
-                              interactionOptions: const InteractionOptions(
+                              interactionOptions: InteractionOptions(
                                   flags: InteractiveFlag.none),
                             ),
                             children: [

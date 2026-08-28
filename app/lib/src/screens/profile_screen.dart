@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -85,7 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      // ── Step 2: compress to ≤ 400 KB ────────────────────────
+      // ── Step 2: compress ────────────────────────────────────
       final tempDir = await getTemporaryDirectory();
       final targetPath =
           '${tempDir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -99,14 +100,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         format: CompressFormat.jpeg,
       );
 
-      final uploadPath = compressed?.path ?? cropped.path;
-
-      if (!File(uploadPath).existsSync()) {
-        throw Exception('Compressed file not found. Please try again.');
+      // Read the file bytes and encode as base64 data URL directly —
+      // avoids any multipart/content-URI issues on Android.
+      final fileToRead = File(compressed?.path ?? cropped.path);
+      if (!fileToRead.existsSync()) {
+        throw Exception('Could not read the cropped image. Please try again.');
       }
+      final bytes = await fileToRead.readAsBytes();
+      final dataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
-      // ── Step 3: upload ───────────────────────────────────────
-      await provider.uploadAvatar(uploadPath);
+      // ── Step 3: upload as JSON (no multipart) ────────────────
+      await provider.updateProfile(avatarUrl: dataUrl);
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(content: Text('Profile picture updated! ✓')),
@@ -114,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Clean up temp files
       try {
-        File(uploadPath).deleteSync();
+        fileToRead.deleteSync();
         File(cropped.path).deleteSync();
       } catch (_) {}
     } catch (e) {

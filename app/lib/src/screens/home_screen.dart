@@ -26,25 +26,44 @@ Future<String> _placeName(double lat, double lng) async {
     if (res.statusCode == 200) {
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final addr = j['address'] as Map<String, dynamic>? ?? {};
+
+      // Priority order — most specific first:
+      // barangay → suburb/village → road → municipality → city
+      final barangay = addr['quarter'] as String? ??
+          addr['neighbourhood'] as String? ??
+          addr['hamlet'] as String? ??
+          addr['isolated_dwelling'] as String? ??
+          addr['city_district'] as String? ??
+          '';
+
+      final village = addr['village'] as String? ??
+          addr['suburb'] as String? ??
+          addr['town'] as String? ??
+          '';
+
+      final municipality = addr['municipality'] as String? ??
+          addr['city'] as String? ??
+          addr['county'] as String? ??
+          addr['state_district'] as String? ??
+          '';
+
+      final road = addr['road'] as String? ??
+          addr['pedestrian'] as String? ??
+          addr['footway'] as String? ??
+          addr['path'] as String? ??
+          '';
+
+      // Build label: prefer barangay + municipality, fall back to road + village
       final parts = <String>[
-        addr['road'] ??
-            addr['pedestrian'] ??
-            addr['footway'] ??
-            addr['path'] ??
-            '',
-        addr['city_district'] ??
-            addr['suburb'] ??
-            addr['neighbourhood'] ??
-            addr['quarter'] ??
-            addr['village'] ??
-            '',
-        addr['city'] ??
-            addr['town'] ??
-            addr['municipality'] ??
-            addr['county'] ??
-            '',
-      ].where((s) => s.isNotEmpty).toList();
-      if (parts.isNotEmpty) return parts.take(3).join(', ');
+        if (barangay.isNotEmpty) barangay,
+        if (village.isNotEmpty && village != barangay) village,
+        if (municipality.isNotEmpty && municipality != village) municipality,
+        if (barangay.isEmpty && road.isNotEmpty) road,
+      ].take(3).toList();
+
+      if (parts.isNotEmpty) return parts.join(', ');
+
+      // Last resort — first 3 comma-separated parts of display_name
       return j['display_name']
               ?.toString()
               .split(',')

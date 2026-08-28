@@ -15,8 +15,12 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite,
-                size: 80, color: Theme.of(context).colorScheme.primary),
+            Image.asset(
+              'assets/applogo.png',
+              width: 80,
+              height: 80,
+              fit: BoxFit.contain,
+            ),
             const SizedBox(height: 16),
             Text('LoveOrbit',
                 style: Theme.of(context)

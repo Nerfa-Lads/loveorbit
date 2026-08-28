@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/avatar_image.dart';
@@ -42,33 +45,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (source == null) return;
 
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
+    final picked = await picker.pickImage(source: source);
     if (picked == null) return;
     if (!mounted) return;
 
-    // Capture before any further async gaps
     final provider = context.read<AppProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
     setState(() => _uploadingAvatar = true);
     try {
-      await provider.uploadAvatar(picked.path);
+      // Compress to ≤ 400 KB, max 512×512 — well within the 5 MB server limit
+      final tempDir = await getTemporaryDirectory();
+      final targetPath =
+          '${tempDir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final compressed = await FlutterImageCompress.compressAndGetFile(
+        picked.path,
+        targetPath,
+        minWidth: 512,
+        minHeight: 512,
+        quality: 80,
+        format: CompressFormat.jpeg,
+      );
+
+      final uploadPath = compressed?.path ?? picked.path;
+
+      // Verify the file actually exists before sending
+      if (!File(uploadPath).existsSync()) {
+        throw Exception('Compressed file not found. Please try again.');
+      }
+
+      await provider.uploadAvatar(uploadPath);
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Profile picture updated!')),
+        const SnackBar(content: Text('Profile picture updated! ✓')),
       );
+
+      // Clean up temp file
+      try {
+        File(uploadPath).deleteSync();
+      } catch (_) {}
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final raw = e.toString();
+      // Strip "Exception: " prefix for cleaner display
+      final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Upload failed: $msg'),
+          content: Text(msg),
           duration: const Duration(seconds: 5),
+          backgroundColor: Colors.red.shade700,
         ),
       );
     } finally {

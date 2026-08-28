@@ -11,21 +11,11 @@ class AppLogo extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        Image.asset(
+          'assets/applogo.png',
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            color: scheme.primary,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.35),
-                blurRadius: 20,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Icon(Icons.favorite, color: Colors.white, size: size * 0.48),
+          fit: BoxFit.contain,
         ),
         const SizedBox(height: 12),
         Text(
@@ -67,8 +57,6 @@ class LoveOrbitAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     // Sub-screen: show back arrow + screen name
     if (screenTitle != null) {
       return AppBar(
@@ -85,14 +73,11 @@ class LoveOrbitAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       automaticallyImplyLeading: showBack,
       centerTitle: true,
-      title: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: scheme.primary,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.favorite, color: Colors.white, size: 20),
+      title: Image.asset(
+        'assets/applogo.png',
+        width: 34,
+        height: 34,
+        fit: BoxFit.contain,
       ),
       actions: actions,
     );

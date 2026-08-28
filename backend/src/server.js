@@ -20,7 +20,7 @@ app.use(cors());
 app.use((req, res, next) => {
   // Skip JSON body parsing for multipart routes (avatar, media upload)
   // so that multer can read the stream itself.
-  if (req.path === '/api/auth/avatar' || req.path === '/api/media') {
+  if (/^\/(api\/auth\/avatar|api\/media)(\/|$)/.test(req.path)) {
     return next();
   }
   express.json({ limit: '20mb' })(req, res, next);

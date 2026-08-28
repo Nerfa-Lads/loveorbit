@@ -215,11 +215,36 @@ class ApiService {
 
   // ---------- avatar ----------
   Future<AppUser> uploadAvatar(String filePath) async {
+    final tok = await token ?? '';
     final req = http.MultipartRequest('POST', _uri('/api/auth/avatar'));
-    req.headers['Authorization'] = 'Bearer ${await token ?? ''}';
+    req.headers['Authorization'] = 'Bearer $tok';
     req.files.add(await http.MultipartFile.fromPath('avatar', filePath));
-    final streamed = await req.send();
+
+    final streamed = await req.send().timeout(const Duration(seconds: 30));
     final res = await http.Response.fromStream(streamed);
+
+    if (res.statusCode >= 400) {
+      String msg = 'upload_failed';
+      try {
+        final j = jsonDecode(res.body);
+        msg = j['error'] as String? ?? msg;
+      } catch (_) {}
+      switch (msg) {
+        case 'file_too_large':
+          throw ApiException('Image is too large (max 5 MB).', res.statusCode);
+        case 'images_only':
+          throw ApiException('Only image files are allowed.', res.statusCode);
+        case 'no_file':
+          throw ApiException(
+              'No file was received by the server.', res.statusCode);
+        case 'unauthorized':
+          throw ApiException(
+              'Session expired. Please log in again.', res.statusCode);
+        default:
+          throw ApiException('Upload failed: $msg', res.statusCode);
+      }
+    }
+
     final j = _parse(res);
     return AppUser.fromJson(j['user']);
   }

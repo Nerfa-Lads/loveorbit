@@ -103,7 +103,21 @@ router.delete('/account', auth, async (req, res) => {
 });
 
 // POST /api/auth/avatar  — upload profile picture (stored as base64 data URL)
-router.post('/avatar', auth, avatarUpload.single('avatar'), async (req, res) => {
+router.post('/avatar', auth, (req, res, next) => {
+  avatarUpload.single('avatar')(req, res, (err) => {
+    if (err) {
+      console.error('avatar multer error', err.message);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'file_too_large' });
+      }
+      if (err.message === 'images_only') {
+        return res.status(400).json({ error: 'images_only' });
+      }
+      return res.status(400).json({ error: err.message || 'upload_failed' });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'no_file' });
     const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -114,7 +128,7 @@ router.post('/avatar', auth, avatarUpload.single('avatar'), async (req, res) => 
     );
     res.json({ user: rows[0] });
   } catch (e) {
-    console.error('avatar', e);
+    console.error('avatar db error', e);
     res.status(500).json({ error: 'server_error' });
   }
 });

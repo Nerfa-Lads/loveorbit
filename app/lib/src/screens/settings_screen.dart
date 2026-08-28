@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../widgets/avatar_image.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -65,15 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundImage: p.user?.avatarUrl != null
-                              ? NetworkImage(p.user!.avatarUrl!)
-                              : null,
-                          child: p.user?.avatarUrl == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
+                        AvatarImage(url: p.user?.avatarUrl, radius: 24),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

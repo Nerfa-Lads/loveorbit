@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../services/location_service.dart';
 import '../models/models.dart';
+import '../widgets/avatar_image.dart';
 import 'splash_screen.dart' show OrbitMap;
 
 class HomeScreen extends StatefulWidget {
@@ -193,14 +194,7 @@ class _PartnerCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundImage: partner.avatarUrl != null
-                  ? NetworkImage(partner.avatarUrl!)
-                  : null,
-              child:
-                  partner.avatarUrl == null ? const Icon(Icons.person) : null,
-            ),
+            AvatarImage(url: partner.avatarUrl, radius: 28),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

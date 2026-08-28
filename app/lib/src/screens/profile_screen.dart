@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../widgets/avatar_image.dart';
 import 'connect_partner_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_screen.dart';
@@ -88,17 +89,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   GestureDetector(
                     onTap: _pickAvatar,
-                    child: CircleAvatar(
-                      radius: 56,
-                      backgroundImage: user?.avatarUrl != null
-                          ? NetworkImage(user!.avatarUrl!)
-                          : null,
-                      child: _uploadingAvatar
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : user?.avatarUrl == null
-                              ? const Icon(Icons.person, size: 52)
-                              : null,
-                    ),
+                    child: _uploadingAvatar
+                        ? const CircleAvatar(
+                            radius: 56,
+                            child:
+                                CircularProgressIndicator(color: Colors.white),
+                          )
+                        : AvatarImage(url: user?.avatarUrl, radius: 56),
                   ),
                   // Camera badge
                   Positioned(

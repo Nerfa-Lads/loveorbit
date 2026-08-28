@@ -37,8 +37,13 @@ class AppProvider extends ChangeNotifier {
       SyncService.instance.init(token: tok, onIncomingMessage: _onIncoming);
       _listenSync();
       notifyListeners();
-    } catch (_) {
-      await ApiService.clearToken();
+    } catch (e) {
+      // Only clear token on auth errors, not network errors
+      final msg = e.toString();
+      if (msg.contains('unauthorized') || msg.contains('401')) {
+        await ApiService.clearToken();
+      }
+      notifyListeners();
     }
   }
 

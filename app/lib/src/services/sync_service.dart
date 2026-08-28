@@ -48,13 +48,17 @@ class SyncService {
     if (token != null) connectSocket(token, onIncomingMessage);
   }
 
-  void connectSocket(String token, void Function(ChatMessage)? onIncomingMessage) {
+  void connectSocket(
+      String token, void Function(ChatMessage)? onIncomingMessage,
+      {void Function(String displayName)? onPartnerArrived}) {
     _socket?.dispose();
-    _socket = io.io(AppConfig.socketUrl, io.OptionBuilder()
-        .setAuth({'token': token})
-        .disableAutoConnect()
-        .enableReconnection()
-        .build());
+    _socket = io.io(
+        AppConfig.socketUrl,
+        io.OptionBuilder()
+            .setAuth({'token': token})
+            .disableAutoConnect()
+            .enableReconnection()
+            .build());
     _socket!.connect();
     _socket!.on('message:new', (data) {
       try {
@@ -68,11 +72,20 @@ class SyncService {
         final d = data as Map<String, dynamic>;
         final status = d['status'] as String;
         final clientUid = d['client_uid'] as String?;
-        if (clientUid != null) LocalStore.updateMessageStatus(clientUid, status);
+        if (clientUid != null) {
+          LocalStore.updateMessageStatus(clientUid, status);
+        }
       } catch (_) {}
     });
     _socket!.on('location:update', (_) {});
     _socket!.on('sharing:toggle', (_) {});
+    _socket!.on('home:arrived', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final name = d['display_name'] as String? ?? 'Your partner';
+        onPartnerArrived?.call(name);
+      } catch (_) {}
+    });
   }
 
   void emitMessage(ChatMessage m) {
@@ -81,6 +94,11 @@ class SyncService {
 
   void emitSharing({required bool sharing, required bool paused}) {
     _socket?.emit('sharing:toggle', {'sharing': sharing, 'paused': paused});
+  }
+
+  void emitHomeArrived() {
+    _socket?.emit('home:arrived',
+        {'timestamp': DateTime.now().toUtc().toIso8601String()});
   }
 
   Future<void> _syncAll() async {

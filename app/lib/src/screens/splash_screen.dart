@@ -127,6 +127,7 @@ class OrbitMap extends StatelessWidget {
   final LatLng? partnerLocation;
   final String? myAvatarUrl;
   final String? partnerAvatarUrl;
+  final Color? myBorderColor;
 
   const OrbitMap({
     super.key,
@@ -138,6 +139,7 @@ class OrbitMap extends StatelessWidget {
     this.partnerLocation,
     this.myAvatarUrl,
     this.partnerAvatarUrl,
+    this.myBorderColor,
   });
 
   @override
@@ -147,6 +149,8 @@ class OrbitMap extends StatelessWidget {
         myLocation ??
         (points.isNotEmpty ? points.first : const LatLng(0, 0));
 
+    final myPinColor = myBorderColor ?? Colors.green;
+
     final markers = <Marker>[
       if (myLocation != null)
         Marker(
@@ -155,7 +159,7 @@ class OrbitMap extends StatelessWidget {
           height: 56,
           child: _AvatarMarker(
             avatarUrl: myAvatarUrl,
-            borderColor: Colors.green,
+            borderColor: myPinColor,
             fallbackIcon: Icons.person,
           ),
         ),

@@ -1,11 +1,28 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
+
+// Default available pin border colors
+const List<Color> kPinBorderColors = [
+  Color(0xFF4CAF50), // Green (default)
+  Color(0xFFE91E63), // Pink
+  Color(0xFF9C27B0), // Purple
+  Color(0xFF2196F3), // Blue
+  Color(0xFFFF9800), // Orange
+  Color(0xFFF44336), // Red
+  Color(0xFF00BCD4), // Cyan
+  Color(0xFFFFEB3B), // Yellow
+  Color(0xFFFFFFFF), // White
+  Color(0xFF212121), // Black
+];
+
+const String _kPinColorKey = 'pin_border_color';
 
 class AppProvider extends ChangeNotifier {
   final _api = ApiService();
@@ -22,9 +39,30 @@ class AppProvider extends ChangeNotifier {
   String? _myId;
   StreamSubscription<SyncStatus>? _syncSub;
 
+  // Pin border color preference
+  Color _pinBorderColor = kPinBorderColors.first;
+  Color get pinBorderColor => _pinBorderColor;
+
+  Future<void> _loadPinColor() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getInt(_kPinColorKey);
+    if (val != null) {
+      _pinBorderColor = Color(val);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setPinBorderColor(Color color) async {
+    _pinBorderColor = color;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kPinColorKey, color.toARGB32());
+  }
+
   bool get isConnected => couple?.status == 'active' && partner != null;
 
   Future<void> bootstrap() async {
+    await _loadPinColor();
     final tok = await ApiService.token;
     if (tok == null) return;
     try {

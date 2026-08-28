@@ -179,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : null,
                 myAvatarUrl: p.user?.avatarUrl,
                 partnerAvatarUrl: p.partner?.avatarUrl,
+                myBorderColor: p.pinBorderColor,
               ),
 
             const SizedBox(height: 12),
@@ -224,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: 'You',
                         avatarUrl: p.user?.avatarUrl,
                         placeName: _myPlaceName,
-                        borderColor: Colors.green,
+                        borderColor: p.pinBorderColor,
                         timeAgo: null,
                       ),
                     ),

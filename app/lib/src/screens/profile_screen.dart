@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -54,13 +55,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _uploadingAvatar = true);
     try {
-      // Compress to ≤ 400 KB, max 512×512 — well within the 5 MB server limit
+      // ── Step 1: crop (1:1 square) ─────────────────────────
+      final scheme = Theme.of(context).colorScheme;
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: picked.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop photo',
+            toolbarColor: scheme.primary,
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: scheme.primary,
+            cropStyle: CropStyle.circle,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop photo',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            cropStyle: CropStyle.circle,
+          ),
+        ],
+      );
+
+      // User cancelled the cropper
+      if (cropped == null) {
+        setState(() => _uploadingAvatar = false);
+        return;
+      }
+
+      // ── Step 2: compress to ≤ 400 KB ────────────────────────
       final tempDir = await getTemporaryDirectory();
       final targetPath =
           '${tempDir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       final compressed = await FlutterImageCompress.compressAndGetFile(
-        picked.path,
+        cropped.path,
         targetPath,
         minWidth: 512,
         minHeight: 512,
@@ -68,27 +99,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         format: CompressFormat.jpeg,
       );
 
-      final uploadPath = compressed?.path ?? picked.path;
+      final uploadPath = compressed?.path ?? cropped.path;
 
-      // Verify the file actually exists before sending
       if (!File(uploadPath).existsSync()) {
         throw Exception('Compressed file not found. Please try again.');
       }
 
+      // ── Step 3: upload ───────────────────────────────────────
       await provider.uploadAvatar(uploadPath);
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(content: Text('Profile picture updated! ✓')),
       );
 
-      // Clean up temp file
+      // Clean up temp files
       try {
         File(uploadPath).deleteSync();
+        File(cropped.path).deleteSync();
       } catch (_) {}
     } catch (e) {
       if (!mounted) return;
       final raw = e.toString();
-      // Strip "Exception: " prefix for cleaner display
       final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
       messenger.showSnackBar(
         SnackBar(

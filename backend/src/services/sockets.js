@@ -60,6 +60,20 @@ export function attachSockets(httpServer) {
       if (coupleId) socket.to(`couple:${coupleId}`).emit('typing', { user_id: userId });
     });
 
+    // Emitted by a user when they arrive home
+    socket.on('home:arrived', async (data) => {
+      if (!coupleId) return;
+      // Look up display name to send to partner
+      const { rows: userRows } = await query('SELECT display_name FROM users WHERE id = $1', [userId]);
+      const name = userRows[0]?.display_name || 'Your partner';
+      // Notify the partner only (not the sender)
+      socket.to(`couple:${coupleId}`).emit('home:arrived', {
+        user_id: userId,
+        display_name: name,
+        timestamp: data?.timestamp || new Date().toISOString(),
+      });
+    });
+
     socket.on('disconnect', () => {});
   });
 

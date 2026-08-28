@@ -27,6 +27,7 @@ dependencies:
   flutter_local_notifications: ^17.1.2
   connectivity_plus: ^6.0.3
   cached_network_image: ^3.3.1
+  battery_plus: ^6.0.1
 
 dev_dependencies:
   flutter_test:

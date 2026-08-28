@@ -43,16 +43,23 @@ class AppLogo extends StatelessWidget {
 }
 
 /// Shared AppBar used across all screens.
-/// Shows the LoveOrbit heart logo + app name on the left,
-/// and optional [actions] on the right.
+///
+/// - Main tabs (Home, History, Chat, Profile): shows the heart icon centered,
+///   no text title.
+/// - Sub-screens (Settings, etc.): shows back arrow + [screenTitle] as text.
 class LoveOrbitAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final bool showBack;
+
+  /// If provided, shows this as the AppBar title text instead of the logo icon.
+  /// Use for sub-screens like "Settings", "Privacy", etc.
+  final String? screenTitle;
 
   const LoveOrbitAppBar({
     super.key,
     this.actions,
     this.showBack = false,
+    this.screenTitle,
   });
 
   @override
@@ -62,31 +69,30 @@ class LoveOrbitAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    // Sub-screen: show back arrow + screen name
+    if (screenTitle != null) {
+      return AppBar(
+        automaticallyImplyLeading: true,
+        title: Text(
+          screenTitle!,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        actions: actions,
+      );
+    }
+
+    // Main screen: centered logo icon only
     return AppBar(
       automaticallyImplyLeading: showBack,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.favorite, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'LoveOrbit',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-              color: scheme.primary,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+      centerTitle: true,
+      title: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: scheme.primary,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.favorite, color: Colors.white, size: 20),
       ),
       actions: actions,
     );

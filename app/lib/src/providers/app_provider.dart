@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -23,9 +26,13 @@ const List<Color> kPinBorderColors = [
 ];
 
 const String _kPinColorKey = 'pin_border_color';
+const String _kHomePinLatKey = 'home_pin_lat';
+const String _kHomePinLngKey = 'home_pin_lng';
+const String _kSavedPlacesKey = 'saved_places';
 
 class AppProvider extends ChangeNotifier {
   final _api = ApiService();
+  final _battery = Battery();
 
   AppUser? user;
   Couple? couple;
@@ -39,10 +46,105 @@ class AppProvider extends ChangeNotifier {
   String? _myId;
   StreamSubscription<SyncStatus>? _syncSub;
 
-  // Pin border color preference
+  // ── Home pin ──────────────────────────────────────────────
+  /// My saved home location. Null if not set.
+  double? homeLat;
+  double? homeLng;
+
+  /// My last known coordinates (updated whenever HomeScreen fetches location).
+  double? _myLat;
+  double? _myLng;
+
+  void setMyCurrentLoc(double lat, double lng) {
+    _myLat = lat;
+    _myLng = lng;
+    // Broadcast home:arrived to partner if we just arrived home
+    if (amIHome) SyncService.instance.emitHomeArrived();
+    notifyListeners();
+  }
+
+  /// True when my current location is within 200 m of my home pin.
+  bool get amIHome {
+    if (homeLat == null || homeLng == null) return false;
+    if (_myLat == null || _myLng == null) return false;
+    return _distanceMeters(_myLat!, _myLng!, homeLat!, homeLng!) < 200;
+  }
+
+  /// Whether partner is currently at their home pin (received via socket).
+  bool partnerIsHome = false;
+
+  /// Partner's home pin coordinates (received via socket when they set/share it).
+  double? partnerHomeLat;
+  double? partnerHomeLng;
+
+  // ── Saved places ──────────────────────────────────────────
+  /// My named places (home, sister's house, etc.).
+  List<SavedPlace> savedPlaces = [];
+
+  /// Partner's named places (received via socket).
+  List<SavedPlace> partnerPlaces = [];
+
+  // ── Today's journey ───────────────────────────────────────
+  /// GPS breadcrumbs recorded since midnight local time.
+  /// Used to draw the day's route line on the map.
+  final List<LocationPoint> todayJourney = [];
+  StreamSubscription<LocationPoint>? _journeySub;
+
+  // ── Battery ───────────────────────────────────────────────
+  /// My own battery level (0–100). -1 = unknown.
+  int myBattery = -1;
+
+  /// Partner's battery level (0–100). -1 = unknown.
+  int partnerBattery = -1;
+
+  /// Partner's battery charging state.
+  BatteryState partnerBatteryState = BatteryState.unknown;
+
+  StreamSubscription<BatteryState>? _batteryStateSub;
+
+  // ── Pin border color preference ───────────────────────────
   Color _pinBorderColor = kPinBorderColors.first;
   Color get pinBorderColor => _pinBorderColor;
 
+  // ─────────────────────────────────────────────────────────
+  bool get isConnected => couple?.status == 'active' && partner != null;
+
+  // ── Bootstrap ─────────────────────────────────────────────
+  Future<void> bootstrap() async {
+    await _loadPinColor();
+    await _loadHomePin();
+    await _loadSavedPlaces();
+    final tok = await ApiService.token;
+    if (tok == null) return;
+    try {
+      user = await _api.me();
+      _myId = user!.id;
+      await refreshCouple();
+      await loadSharing();
+      await loadMessages();
+      messages = await LocalStore.cachedMessages();
+      SyncService.instance.init(
+        token: tok,
+        onIncomingMessage: _onIncoming,
+        onPartnerBattery: _onPartnerBattery,
+        onPartnerIsHome: _onPartnerIsHome,
+        onPartnerHomePin: _onPartnerHomePin,
+        onPartnerPlaces: _onPartnerPlaces,
+      );
+      _listenSync();
+      await _initBattery();
+      _startJourneyTracking();
+      notifyListeners();
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('unauthorized') || msg.contains('401')) {
+        await ApiService.clearToken();
+      }
+      notifyListeners();
+    }
+  }
+
+  // ── Pin color ─────────────────────────────────────────────
   Future<void> _loadPinColor() async {
     final prefs = await SharedPreferences.getInstance();
     final val = prefs.getInt(_kPinColorKey);
@@ -59,40 +161,217 @@ class AppProvider extends ChangeNotifier {
     await prefs.setInt(_kPinColorKey, color.toARGB32());
   }
 
-  bool get isConnected => couple?.status == 'active' && partner != null;
-
-  Future<void> bootstrap() async {
-    await _loadPinColor();
-    final tok = await ApiService.token;
-    if (tok == null) return;
-    try {
-      user = await _api.me();
-      _myId = user!.id;
-      await refreshCouple();
-      await loadSharing();
-      await loadMessages();
-      messages = await LocalStore.cachedMessages();
-      SyncService.instance.init(token: tok, onIncomingMessage: _onIncoming);
-      _listenSync();
-      notifyListeners();
-    } catch (e) {
-      // Only clear token on auth errors, not network errors
-      final msg = e.toString();
-      if (msg.contains('unauthorized') || msg.contains('401')) {
-        await ApiService.clearToken();
-      }
+  // ── Home pin ──────────────────────────────────────────────
+  Future<void> _loadHomePin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble(_kHomePinLatKey);
+    final lng = prefs.getDouble(_kHomePinLngKey);
+    if (lat != null && lng != null) {
+      homeLat = lat;
+      homeLng = lng;
       notifyListeners();
     }
   }
 
-  // ---------- auth ----------
+  /// Save a home pin at the given coordinates and notify partner via socket.
+  Future<void> setHomePin(double lat, double lng) async {
+    homeLat = lat;
+    homeLng = lng;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kHomePinLatKey, lat);
+    await prefs.setDouble(_kHomePinLngKey, lng);
+    SyncService.instance.emitHomePin(lat: lat, lng: lng);
+    notifyListeners();
+  }
+
+  /// Remove the home pin.
+  Future<void> clearHomePin() async {
+    homeLat = null;
+    homeLng = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kHomePinLatKey);
+    await prefs.remove(_kHomePinLngKey);
+    notifyListeners();
+  }
+
+  // ── Battery ───────────────────────────────────────────────
+  Future<void> _initBattery() async {
+    try {
+      myBattery = await _battery.batteryLevel;
+      SyncService.instance.emitBattery(level: myBattery);
+    } catch (_) {}
+
+    _batteryStateSub?.cancel();
+    _batteryStateSub = _battery.onBatteryStateChanged.listen((_) async {
+      try {
+        myBattery = await _battery.batteryLevel;
+        SyncService.instance.emitBattery(level: myBattery);
+        notifyListeners();
+      } catch (_) {}
+    });
+  }
+
+  void _onPartnerBattery(int level, String state) {
+    partnerBattery = level;
+    partnerBatteryState = _parseBatteryState(state);
+    notifyListeners();
+  }
+
+  void _onPartnerIsHome(bool isHome) {
+    partnerIsHome = isHome;
+    notifyListeners();
+    if (isHome && partner != null) {
+      NotificationService.notify(
+        title: '${partner!.displayName} is home 🏠',
+        body: 'They just arrived at their home location.',
+      );
+    }
+  }
+
+  void _onPartnerHomePin(double lat, double lng) {
+    partnerHomeLat = lat;
+    partnerHomeLng = lng;
+    notifyListeners();
+  }
+
+  void _onPartnerPlaces(List<SavedPlace> places) {
+    partnerPlaces = places;
+    notifyListeners();
+  }
+
+  // ── Saved places ──────────────────────────────────────────
+  Future<void> _loadSavedPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kSavedPlacesKey);
+    if (raw != null) {
+      try {
+        final list = jsonDecode(raw) as List<dynamic>;
+        savedPlaces = list
+            .map((e) => SavedPlace.fromJson(e as Map<String, dynamic>))
+            .toList();
+        notifyListeners();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _persistSavedPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kSavedPlacesKey,
+      jsonEncode(savedPlaces.map((p) => p.toJson()).toList()),
+    );
+  }
+
+  Future<void> addSavedPlace(SavedPlace place) async {
+    savedPlaces = [...savedPlaces, place];
+    await _persistSavedPlaces();
+    SyncService.instance.emitPlaces(savedPlaces);
+    notifyListeners();
+  }
+
+  Future<void> updateSavedPlace(SavedPlace place) async {
+    savedPlaces = savedPlaces.map((p) => p.id == place.id ? place : p).toList();
+    await _persistSavedPlaces();
+    SyncService.instance.emitPlaces(savedPlaces);
+    notifyListeners();
+  }
+
+  Future<void> removeSavedPlace(String id) async {
+    savedPlaces = savedPlaces.where((p) => p.id != id).toList();
+    await _persistSavedPlaces();
+    SyncService.instance.emitPlaces(savedPlaces);
+    notifyListeners();
+  }
+
+  // ── Today's journey ───────────────────────────────────────
+  void _startJourneyTracking() {
+    _journeySub?.cancel();
+    // Seed with today's points already in SQLite pending queue
+    _seedTodayJourney();
+    // Then listen live to the GPS stream
+    _journeySub = LocationService.instance.stream.listen((pt) {
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+      if (pt.recordedAt.isAfter(midnight)) {
+        todayJourney.add(pt);
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<void> _seedTodayJourney() async {
+    final all = await LocalStore.pendingLocations();
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day);
+    final today = all.where((p) => p.recordedAt.isAfter(midnight)).toList()
+      ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+    if (today.isNotEmpty) {
+      todayJourney.addAll(today);
+      notifyListeners();
+    }
+  }
+
+  /// Returns the label of the nearest saved place within [radiusMeters],
+  /// or null if nothing is close enough.
+  String? nearestPlaceLabel(double lat, double lng,
+      {double radiusMeters = 150}) {
+    SavedPlace? nearest;
+    double minDist = double.infinity;
+    for (final place in savedPlaces) {
+      final d = _distanceMeters(lat, lng, place.lat, place.lng);
+      if (d < radiusMeters && d < minDist) {
+        minDist = d;
+        nearest = place;
+      }
+    }
+    return nearest?.label;
+  }
+
+  /// Same lookup against partner's saved places.
+  String? partnerNearestPlaceLabel(double lat, double lng,
+      {double radiusMeters = 150}) {
+    SavedPlace? nearest;
+    double minDist = double.infinity;
+    for (final place in partnerPlaces) {
+      final d = _distanceMeters(lat, lng, place.lat, place.lng);
+      if (d < radiusMeters && d < minDist) {
+        minDist = d;
+        nearest = place;
+      }
+    }
+    return nearest?.label;
+  }
+
+  BatteryState _parseBatteryState(String s) {
+    switch (s) {
+      case 'charging':
+        return BatteryState.charging;
+      case 'full':
+        return BatteryState.full;
+      case 'discharging':
+        return BatteryState.discharging;
+      default:
+        return BatteryState.unknown;
+    }
+  }
+
+  // ── Auth ──────────────────────────────────────────────────
   Future<void> register(String username, String password, String name) async {
     final r = await _api.register(
         username: username, password: password, displayName: name);
     user = r.user;
     _myId = user!.id;
-    SyncService.instance.init(token: r.token, onIncomingMessage: _onIncoming);
+    SyncService.instance.init(
+      token: r.token,
+      onIncomingMessage: _onIncoming,
+      onPartnerBattery: _onPartnerBattery,
+      onPartnerIsHome: _onPartnerIsHome,
+      onPartnerHomePin: _onPartnerHomePin,
+      onPartnerPlaces: _onPartnerPlaces,
+    );
     _listenSync();
+    await _initBattery();
+    _startJourneyTracking();
     notifyListeners();
   }
 
@@ -103,13 +382,25 @@ class AppProvider extends ChangeNotifier {
     await refreshCouple();
     await loadSharing();
     messages = await LocalStore.cachedMessages();
-    SyncService.instance.init(token: r.token, onIncomingMessage: _onIncoming);
+    SyncService.instance.init(
+      token: r.token,
+      onIncomingMessage: _onIncoming,
+      onPartnerBattery: _onPartnerBattery,
+      onPartnerIsHome: _onPartnerIsHome,
+      onPartnerHomePin: _onPartnerHomePin,
+      onPartnerPlaces: _onPartnerPlaces,
+    );
     _listenSync();
+    await _initBattery();
+    _startJourneyTracking();
     notifyListeners();
   }
 
   Future<void> logout() async {
     await _syncSub?.cancel();
+    await _batteryStateSub?.cancel();
+    await _journeySub?.cancel();
+    _journeySub = null;
     await LocationService.instance.stopRecording();
     await SyncService.instance.dispose();
     await ApiService.clearToken();
@@ -117,6 +408,12 @@ class AppProvider extends ChangeNotifier {
     couple = null;
     partner = null;
     messages = [];
+    partnerBattery = -1;
+    partnerIsHome = false;
+    partnerHomeLat = null;
+    partnerHomeLng = null;
+    partnerPlaces = [];
+    todayJourney.clear();
     notifyListeners();
   }
 
@@ -135,7 +432,7 @@ class AppProvider extends ChangeNotifier {
     await logout();
   }
 
-  // ---------- couple ----------
+  // ── Couple ────────────────────────────────────────────────
   Future<Couple> createCouple() async {
     final c = await _api.createCouple();
     couple = c;
@@ -164,7 +461,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---------- sharing ----------
+  // ── Sharing ───────────────────────────────────────────────
   Future<void> loadSharing() async {
     final s = await _api.getSharing();
     sharing = s.sharing;
@@ -193,7 +490,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---------- messages ----------
+  // ── Messages ──────────────────────────────────────────────
   Future<void> loadMessages() async {
     try {
       final m = await _api.messages(limit: 100);
@@ -241,7 +538,6 @@ class AppProvider extends ChangeNotifier {
   }
 
   String _uuid() {
-    // simple unique id without extra dep cycle
     return DateTime.now().microsecondsSinceEpoch.toString() +
         (partner?.id.hashCode ?? 0).toString();
   }
@@ -255,12 +551,12 @@ class AppProvider extends ChangeNotifier {
     });
   }
 
-  // ---------- history ----------
+  // ── History ───────────────────────────────────────────────
   Future<void> deleteMyHistory() async {
     await _api.deleteMyLocations();
   }
 
-  // ---------- partner location ----------
+  // ── Partner location ──────────────────────────────────────
   Future<void> refreshPartnerLatest() async {
     if (!isConnected) return;
     try {
@@ -268,4 +564,21 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
   }
+
+  // ── Helpers ───────────────────────────────────────────────
+  /// Haversine distance in metres.
+  static double _distanceMeters(
+      double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371000.0;
+    final dLat = _toRad(lat2 - lat1);
+    final dLng = _toRad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRad(lat1)) *
+            math.cos(_toRad(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  static double _toRad(double deg) => deg * math.pi / 180;
 }

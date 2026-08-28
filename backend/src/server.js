@@ -17,7 +17,14 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
 
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
+app.use((req, res, next) => {
+  // Skip JSON body parsing for multipart routes (avatar, media upload)
+  // so that multer can read the stream itself.
+  if (req.path === '/api/auth/avatar' || req.path === '/api/media') {
+    return next();
+  }
+  express.json({ limit: '20mb' })(req, res, next);
+});
 
 // serve uploaded photos
 const uploadDir = path.resolve(__dirname, '../uploads');

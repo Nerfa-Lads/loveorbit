@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../widgets/loveorbit_app_bar.dart';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
@@ -10,7 +11,7 @@ class PrivacyScreen extends StatelessWidget {
     final p = context.watch<AppProvider>();
     final active = p.sharing && !p.paused;
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacy')),
+      appBar: const LoveOrbitAppBar(screenTitle: 'Privacy'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -34,8 +35,13 @@ class PrivacyScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          active ? 'Location sharing is ON' : 'Location sharing is OFF',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                          active
+                              ? 'Location sharing is ON'
+                              : 'Location sharing is OFF',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
                           active
@@ -63,7 +69,8 @@ class PrivacyScreen extends StatelessWidget {
               SwitchListTile(
                 secondary: const Icon(Icons.pause_circle_outline),
                 title: const Text('Pause sharing'),
-                subtitle: const Text('Temporarily stop sharing without turning off'),
+                subtitle:
+                    const Text('Temporarily stop sharing without turning off'),
                 value: p.paused,
                 onChanged: (v) => p.setSharing(on: true, pause: v),
               ),
@@ -86,7 +93,8 @@ class PrivacyScreen extends StatelessWidget {
             // Delete account
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text('Delete account', style: TextStyle(color: Colors.red)),
+              title: const Text('Delete account',
+                  style: TextStyle(color: Colors.red)),
               subtitle: const Text('Permanently remove your account and data'),
               onTap: () => _confirmDeleteAccount(context, p),
             ),
@@ -96,7 +104,10 @@ class PrivacyScreen extends StatelessWidget {
               child: Text(
                 'LoveOrbit never tracks you secretly. Both partners must agree before '
                 'sharing locations, and you can stop at any time.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -111,9 +122,12 @@ class PrivacyScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete all history?'),
-        content: const Text('This will permanently delete all your recorded locations. This cannot be undone.'),
+        content: const Text(
+            'This will permanently delete all your recorded locations. This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -138,10 +152,13 @@ class PrivacyScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Disconnect partner?'),
-        content: const Text('You will stop sharing locations and chat with your partner. '
+        content: const Text(
+            'You will stop sharing locations and chat with your partner. '
             'You can reconnect later with a new couple code.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -159,10 +176,13 @@ class PrivacyScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete account?'),
-        content: const Text('This permanently deletes your account, locations, messages, '
+        content: const Text(
+            'This permanently deletes your account, locations, messages, '
             'and photos. This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {

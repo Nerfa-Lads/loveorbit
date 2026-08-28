@@ -9,12 +9,14 @@ class AppConfig {
 
   static const String socketUrl = backendUrl;
 
-  // OpenStreetMap — free, no API key required
+  // ESRI World Imagery — free satellite tiles, no API key required
   static const String mapTileUrl =
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-  // No separate label layer needed for OSM (labels are baked in)
-  static const String mapLabelUrl = '';
+  // ESRI street/label overlay on top of satellite (roads, place names, barangays)
+  static const String mapLabelUrl =
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 
-  static const String mapAttribution = '&copy; OpenStreetMap contributors';
+  static const String mapAttribution =
+      'Tiles &copy; Esri &mdash; Source: Esri, DigitalGlobe, GeoEye, Earthstar Geographics';
 }

@@ -117,6 +117,71 @@ class _TrianglePainter extends CustomPainter {
   bool shouldRepaint(_TrianglePainter old) => old.color != color;
 }
 
+// ── Home pin marker ───────────────────────────────────────────
+class _HomePinMarker extends StatelessWidget {
+  final Color color;
+  const _HomePinMarker({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Icon(Icons.home, color: color, size: 18),
+    );
+  }
+}
+
+// ── Named pin data holder ─────────────────────────────────────
+typedef NamedPin = ({LatLng point, String label});
+
+// ── Labelled place marker ─────────────────────────────────────
+class _LabelledPlaceMarker extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _LabelledPlaceMarker({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label bubble
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.4),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        // Down arrow
+        Icon(Icons.arrow_drop_down, color: color, size: 18),
+      ],
+    );
+  }
+}
+
 // ── Reusable map widget ───────────────────────────────────────
 class OrbitMap extends StatelessWidget {
   final List<LatLng> points;
@@ -128,6 +193,17 @@ class OrbitMap extends StatelessWidget {
   final String? myAvatarUrl;
   final String? partnerAvatarUrl;
   final Color? myBorderColor;
+  final LatLng? myHomePin;
+  final LatLng? partnerHomePin;
+
+  /// My named saved places — shown as labelled pins on the map.
+  final List<NamedPin> myPlaces;
+
+  /// Partner's saved places — shown with a different tint.
+  final List<NamedPin> partnerPlaces;
+
+  /// Today's GPS breadcrumbs — drawn as a route line.
+  final List<LatLng> todayJourney;
 
   const OrbitMap({
     super.key,
@@ -140,6 +216,11 @@ class OrbitMap extends StatelessWidget {
     this.myAvatarUrl,
     this.partnerAvatarUrl,
     this.myBorderColor,
+    this.myHomePin,
+    this.partnerHomePin,
+    this.myPlaces = const [],
+    this.partnerPlaces = const [],
+    this.todayJourney = const [],
   });
 
   @override
@@ -181,6 +262,43 @@ class OrbitMap extends StatelessWidget {
           height: 44,
           child: Icon(Icons.location_on, color: scheme.primary, size: 40),
         ),
+      // ── Home pin markers ──────────────────────────────────
+      if (myHomePin != null)
+        Marker(
+          point: myHomePin!,
+          width: 40,
+          height: 40,
+          child: _HomePinMarker(color: myPinColor),
+        ),
+      if (partnerHomePin != null)
+        Marker(
+          point: partnerHomePin!,
+          width: 40,
+          height: 40,
+          child: _HomePinMarker(color: scheme.primary),
+        ),
+      // ── Named saved places (mine) ──────────────────────
+      for (final pin in myPlaces)
+        Marker(
+          point: pin.point,
+          width: 100,
+          height: 52,
+          child: _LabelledPlaceMarker(
+            label: pin.label,
+            color: myPinColor,
+          ),
+        ),
+      // ── Partner's named places ─────────────────────────
+      for (final pin in partnerPlaces)
+        Marker(
+          point: pin.point,
+          width: 100,
+          height: 52,
+          child: _LabelledPlaceMarker(
+            label: pin.label,
+            color: scheme.primary,
+          ),
+        ),
     ];
 
     return SizedBox(
@@ -221,6 +339,15 @@ class OrbitMap extends StatelessWidget {
                   points: points,
                   strokeWidth: 4,
                   color: scheme.primary.withValues(alpha: 0.6),
+                ),
+              ]),
+            // ── Today's journey trail ──────────────────────
+            if (todayJourney.length > 1)
+              PolylineLayer(polylines: [
+                Polyline(
+                  points: todayJourney,
+                  strokeWidth: 3,
+                  color: myPinColor.withValues(alpha: 0.75),
                 ),
               ]),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),

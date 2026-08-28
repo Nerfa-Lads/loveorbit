@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/app_config.dart';
@@ -26,7 +27,14 @@ class SyncService {
   final _statusController = StreamController<SyncStatus>.broadcast();
   Stream<SyncStatus> get status => _statusController.stream;
 
-  void init({String? token, void Function(ChatMessage)? onIncomingMessage}) {
+  void init({
+    String? token,
+    void Function(ChatMessage)? onIncomingMessage,
+    void Function(int level, String state)? onPartnerBattery,
+    void Function(bool isHome)? onPartnerIsHome,
+    void Function(double lat, double lng)? onPartnerHomePin,
+    void Function(List<SavedPlace> places)? onPartnerPlaces,
+  }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
       if (connected && !_online) {
@@ -45,12 +53,27 @@ class SyncService {
       _statusController.add(SyncStatus(_online, _syncing));
     });
 
-    if (token != null) connectSocket(token, onIncomingMessage);
+    if (token != null) {
+      connectSocket(
+        token,
+        onIncomingMessage,
+        onPartnerBattery: onPartnerBattery,
+        onPartnerIsHome: onPartnerIsHome,
+        onPartnerHomePin: onPartnerHomePin,
+        onPartnerPlaces: onPartnerPlaces,
+      );
+    }
   }
 
   void connectSocket(
-      String token, void Function(ChatMessage)? onIncomingMessage,
-      {void Function(String displayName)? onPartnerArrived}) {
+    String token,
+    void Function(ChatMessage)? onIncomingMessage, {
+    void Function(String displayName)? onPartnerArrived,
+    void Function(int level, String state)? onPartnerBattery,
+    void Function(bool isHome)? onPartnerIsHome,
+    void Function(double lat, double lng)? onPartnerHomePin,
+    void Function(List<SavedPlace> places)? onPartnerPlaces,
+  }) {
     _socket?.dispose();
     _socket = io.io(
         AppConfig.socketUrl,
@@ -60,6 +83,8 @@ class SyncService {
             .enableReconnection()
             .build());
     _socket!.connect();
+
+    // ── Incoming chat message ──────────────────────────────
     _socket!.on('message:new', (data) {
       try {
         final m = ChatMessage.fromJson(data as Map<String, dynamic>);
@@ -67,6 +92,7 @@ class SyncService {
         onIncomingMessage?.call(m);
       } catch (_) {}
     });
+
     _socket!.on('message:status', (data) {
       try {
         final d = data as Map<String, dynamic>;
@@ -77,16 +103,55 @@ class SyncService {
         }
       } catch (_) {}
     });
+
     _socket!.on('location:update', (_) {});
     _socket!.on('sharing:toggle', (_) {});
+
+    // ── Partner arrived home (legacy event) ───────────────
     _socket!.on('home:arrived', (data) {
       try {
         final d = data as Map<String, dynamic>;
         final name = d['display_name'] as String? ?? 'Your partner';
         onPartnerArrived?.call(name);
+        onPartnerIsHome?.call(true);
+      } catch (_) {}
+    });
+
+    // ── Partner home pin set ───────────────────────────────
+    _socket!.on('home:pin', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final lat = (d['lat'] as num?)?.toDouble();
+        final lng = (d['lng'] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          onPartnerHomePin?.call(lat, lng);
+        }
+      } catch (_) {}
+    });
+
+    // ── Partner battery update ─────────────────────────────
+    _socket!.on('battery:update', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final level = (d['level'] as num?)?.toInt() ?? -1;
+        final state = d['state'] as String? ?? 'unknown';
+        onPartnerBattery?.call(level, state);
+      } catch (_) {}
+    });
+
+    // ── Partner saved places ───────────────────────────────
+    _socket!.on('places:sync', (data) {
+      try {
+        final raw = data is String ? jsonDecode(data) : data;
+        final list = (raw as List<dynamic>)
+            .map((e) => SavedPlace.fromJson(e as Map<String, dynamic>))
+            .toList();
+        onPartnerPlaces?.call(list);
       } catch (_) {}
     });
   }
+
+  // ── Emitters ──────────────────────────────────────────────
 
   void emitMessage(ChatMessage m) {
     _socket?.emit('message:send', m.toApiJson());
@@ -96,11 +161,35 @@ class SyncService {
     _socket?.emit('sharing:toggle', {'sharing': sharing, 'paused': paused});
   }
 
+  /// Broadcast that the user has arrived at their home pin.
   void emitHomeArrived() {
     _socket?.emit('home:arrived',
         {'timestamp': DateTime.now().toUtc().toIso8601String()});
   }
 
+  /// Share the user's home pin coordinates with their partner.
+  void emitHomePin({required double lat, required double lng}) {
+    _socket?.emit('home:pin', {
+      'lat': lat,
+      'lng': lng,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  /// Broadcast current battery level to partner.
+  void emitBattery({required int level, String state = 'unknown'}) {
+    _socket?.emit('battery:update', {'level': level, 'state': state});
+  }
+
+  /// Broadcast saved places list to partner.
+  void emitPlaces(List<SavedPlace> places) {
+    _socket?.emit(
+      'places:sync',
+      places.map((p) => p.toJson()).toList(),
+    );
+  }
+
+  // ── Sync ──────────────────────────────────────────────────
   Future<void> _syncAll() async {
     if (_syncing) return;
     _syncing = true;
@@ -146,7 +235,7 @@ class SyncService {
         await _api.uploadMedia(localPath);
         await LocalStore.clearMedia(clientUid);
       } catch (_) {
-        break; // stop on first failure; retry next connectivity change
+        break;
       }
     }
   }

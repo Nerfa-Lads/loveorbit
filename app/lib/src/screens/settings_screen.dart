@@ -21,6 +21,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final p = context.read<AppProvider>();
     _nameController = TextEditingController(text: p.user?.displayName ?? '');
+    // Refresh user in case it loaded after this screen was built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (p.user == null) p.bootstrap();
+    });
   }
 
   @override
@@ -54,15 +58,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Guard — if user data hasn't loaded yet, show a loader
     if (p.user == null) {
       return const Scaffold(
-        appBar: LoveOrbitAppBar(showBack: true),
+        appBar: LoveOrbitAppBar(screenTitle: 'Settings'),
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     final user = p.user!;
 
+    // Sync the name controller if it's still empty after user loaded
+    if (_nameController.text.isEmpty && user.displayName.isNotEmpty) {
+      _nameController.text = user.displayName;
+    }
+
     return Scaffold(
-      appBar: const LoveOrbitAppBar(showBack: true),
+      appBar: const LoveOrbitAppBar(screenTitle: 'Settings'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

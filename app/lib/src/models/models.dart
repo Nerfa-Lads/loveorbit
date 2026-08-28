@@ -175,3 +175,40 @@ class Media {
         contentType: j['content_type'] as String? ?? 'image/jpeg',
       );
 }
+
+// ── Saved place ───────────────────────────────────────────────
+/// A user-defined location with a personal label (e.g. "Home", "Sister's house").
+class SavedPlace {
+  final String id;
+  final String label;
+  final double lat;
+  final double lng;
+
+  SavedPlace({
+    required this.id,
+    required this.label,
+    required this.lat,
+    required this.lng,
+  });
+
+  factory SavedPlace.fromJson(Map<String, dynamic> j) => SavedPlace(
+        id: j['id'] as String,
+        label: j['label'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'lat': lat,
+        'lng': lng,
+      };
+
+  SavedPlace copyWith({String? label, double? lat, double? lng}) => SavedPlace(
+        id: id,
+        label: label ?? this.label,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
+      );
+}

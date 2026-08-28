@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/avatar_image.dart';
+import '../widgets/loveorbit_app_bar.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -50,8 +51,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final p = context.watch<AppProvider>();
     final scheme = Theme.of(context).colorScheme;
 
+    // Guard — if user data hasn't loaded yet, show a loader
+    if (p.user == null) {
+      return const Scaffold(
+        appBar: LoveOrbitAppBar(showBack: true),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final user = p.user!;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: const LoveOrbitAppBar(showBack: true),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -79,8 +90,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   width: 3,
                                 ),
                               ),
-                              child: AvatarImage(
-                                  url: p.user?.avatarUrl, radius: 30),
+                              child:
+                                  AvatarImage(url: user.avatarUrl, radius: 30),
                             ),
                           ],
                         ),
@@ -89,13 +100,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              p.user?.displayName ?? '',
+                              user.displayName,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '@${p.user?.username ?? ''}',
+                              '@${user.username}',
                               style: TextStyle(
                                   color: Colors.grey.shade600, fontSize: 13),
                             ),
@@ -132,13 +143,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _InfoRow(
                       icon: Icons.badge_outlined,
                       label: 'Display name',
-                      value: p.user?.displayName ?? '—',
+                      value: user.displayName,
                     ),
                     const SizedBox(height: 8),
                     _InfoRow(
                       icon: Icons.alternate_email,
                       label: 'Username',
-                      value: '@${p.user?.username ?? '—'}',
+                      value: '@${user.username}',
                     ),
                     if (p.couple?.code != null) ...[
                       const SizedBox(height: 8),
@@ -214,7 +225,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         // Mini pin preview
                         _PinPreview(
-                          avatarUrl: p.user?.avatarUrl,
+                          avatarUrl: user.avatarUrl,
                           borderColor: p.pinBorderColor,
                         ),
                         const SizedBox(width: 16),
@@ -366,14 +377,16 @@ class _PinPreview extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: borderColor, width: 3),
             color: borderColor.withValues(alpha: 0.12),
           ),
-          child: ClipOval(child: AvatarImage(url: avatarUrl, radius: 22)),
+          child: Center(
+            child: AvatarImage(url: avatarUrl, radius: 22),
+          ),
         ),
         CustomPaint(
           size: const Size(12, 6),

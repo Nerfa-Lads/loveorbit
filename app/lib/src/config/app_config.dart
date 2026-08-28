@@ -9,11 +9,12 @@ class AppConfig {
 
   static const String socketUrl = backendUrl;
 
+  // OpenStreetMap — free, no API key required
   static const String mapTileUrl =
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  // Street overlay on top of satellite (optional, for road labels)
-  static const String mapLabelUrl =
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+  // No separate label layer needed for OSM (labels are baked in)
+  static const String mapLabelUrl = '';
+
   static const String mapAttribution = '&copy; OpenStreetMap contributors';
 }

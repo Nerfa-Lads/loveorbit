@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../widgets/loveorbit_app_bar.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -59,8 +60,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final days = _byDay;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Journey History'),
+      appBar: LoveOrbitAppBar(
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -439,20 +439,21 @@ class _RouteMap extends StatelessWidget {
         TileLayer(
           urlTemplate: AppConfig.mapTileUrl,
           tileProvider: NetworkTileProvider(
-            headers: const {
+            headers: {
               'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
             },
           ),
         ),
-        // Road labels on top of satellite
-        TileLayer(
-          urlTemplate: AppConfig.mapLabelUrl,
-          tileProvider: NetworkTileProvider(
-            headers: const {
-              'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
-            },
+        // Road labels on top of base layer (only when URL is set)
+        if (AppConfig.mapLabelUrl.isNotEmpty)
+          TileLayer(
+            urlTemplate: AppConfig.mapLabelUrl,
+            tileProvider: NetworkTileProvider(
+              headers: {
+                'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+              },
+            ),
           ),
-        ),
         PolylineLayer(polylines: [
           Polyline(
               points: points,

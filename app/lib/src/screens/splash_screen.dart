@@ -133,7 +133,7 @@ class OrbitMap extends StatelessWidget {
     super.key,
     required this.points,
     this.center,
-    this.zoom = 14,
+    this.zoom = 16,
     this.height = 220,
     this.myLocation,
     this.partnerLocation,
@@ -188,24 +188,33 @@ class OrbitMap extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: FlutterMap(
-          options: MapOptions(initialCenter: c, initialZoom: zoom),
+          options: MapOptions(
+            initialCenter: c,
+            initialZoom: zoom,
+            minZoom: 3,
+            maxZoom: 19,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all,
+            ),
+          ),
           children: [
             TileLayer(
               urlTemplate: AppConfig.mapTileUrl,
               tileProvider: NetworkTileProvider(
-                headers: const {
+                headers: {
                   'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
                 },
               ),
             ),
-            TileLayer(
-              urlTemplate: AppConfig.mapLabelUrl,
-              tileProvider: NetworkTileProvider(
-                headers: const {
-                  'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
-                },
+            if (AppConfig.mapLabelUrl.isNotEmpty)
+              TileLayer(
+                urlTemplate: AppConfig.mapLabelUrl,
+                tileProvider: NetworkTileProvider(
+                  headers: {
+                    'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+                  },
+                ),
               ),
-            ),
             if (points.length > 1)
               PolylineLayer(polylines: [
                 Polyline(

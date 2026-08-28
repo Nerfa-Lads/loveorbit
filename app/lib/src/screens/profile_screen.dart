@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/avatar_image.dart';
+import '../widgets/loveorbit_app_bar.dart';
 import 'connect_partner_screen.dart';
 import 'settings_screen.dart';
 import 'privacy_screen.dart';
@@ -63,8 +64,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '');
       messenger.showSnackBar(
-        const SnackBar(content: Text('Failed to upload photo. Try again.')),
+        SnackBar(
+          content: Text('Upload failed: $msg'),
+          duration: const Duration(seconds: 5),
+        ),
       );
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
@@ -78,7 +83,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: const LoveOrbitAppBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

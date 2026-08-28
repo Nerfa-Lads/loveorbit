@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/app_provider.dart';
 import '../services/local_store.dart';
 import '../services/sync_service.dart';
+import '../widgets/loveorbit_app_bar.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -75,7 +76,20 @@ class _ChatScreenState extends State<ChatScreen> {
     final msgs = p.messages;
     _scrollToBottom();
     return Scaffold(
-      appBar: AppBar(title: Text(p.partner?.displayName ?? 'Chat')),
+      appBar: LoveOrbitAppBar(
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Text(
+                p.partner?.displayName ?? 'Chat',
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [

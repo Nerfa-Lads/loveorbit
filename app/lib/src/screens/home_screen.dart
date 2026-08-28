@@ -7,6 +7,7 @@ import '../providers/app_provider.dart';
 import '../services/location_service.dart';
 import '../models/models.dart';
 import '../widgets/avatar_image.dart';
+import '../widgets/loveorbit_app_bar.dart';
 import 'splash_screen.dart' show OrbitMap;
 
 // ── Reverse geocode via Nominatim ─────────────────────────────
@@ -119,8 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
+      appBar: LoveOrbitAppBar(
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -168,18 +168,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             else
-              OrbitMap(
-                points: points,
-                center: mapCenter,
-                height: 260,
-                myLocation:
-                    LatLng(_myLocation!.latitude, _myLocation!.longitude),
-                partnerLocation: partnerPt != null
-                    ? LatLng(partnerPt.latitude, partnerPt.longitude)
-                    : null,
-                myAvatarUrl: p.user?.avatarUrl,
-                partnerAvatarUrl: p.partner?.avatarUrl,
-                myBorderColor: p.pinBorderColor,
+              // Absorb scroll notifications so pinch/drag works inside ListView
+              NotificationListener<ScrollNotification>(
+                onNotification: (_) => true,
+                child: OrbitMap(
+                  points: points,
+                  center: mapCenter,
+                  height: 320,
+                  myLocation:
+                      LatLng(_myLocation!.latitude, _myLocation!.longitude),
+                  partnerLocation: partnerPt != null
+                      ? LatLng(partnerPt.latitude, partnerPt.longitude)
+                      : null,
+                  myAvatarUrl: p.user?.avatarUrl,
+                  partnerAvatarUrl: p.partner?.avatarUrl,
+                  myBorderColor: p.pinBorderColor,
+                ),
               ),
 
             const SizedBox(height: 12),

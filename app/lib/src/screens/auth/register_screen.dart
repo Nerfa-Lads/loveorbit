@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/loveorbit_app_bar.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onSwitch;
@@ -80,7 +81,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -89,8 +89,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 40),
-              Icon(Icons.favorite, size: 64, color: scheme.primary),
-              const SizedBox(height: 12),
+              const Center(child: AppLogo()),
+              const SizedBox(height: 24),
               Text('Create your account',
                   style: Theme.of(context)
                       .textTheme

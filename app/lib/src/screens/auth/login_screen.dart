@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/loveorbit_app_bar.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onSwitch;
@@ -63,7 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -72,8 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 60),
-              Icon(Icons.favorite, size: 64, color: scheme.primary),
-              const SizedBox(height: 12),
+              const Center(child: AppLogo()),
+              const SizedBox(height: 24),
               Text('Welcome back',
                   style: Theme.of(context)
                       .textTheme

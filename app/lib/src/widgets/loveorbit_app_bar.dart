@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Large logo used on auth screens (login / register).
 class AppLogo extends StatelessWidget {
   final double size;
-  const AppLogo({super.key, this.size = 72});
+  const AppLogo({super.key, this.size = 100});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class AppLogo extends StatelessWidget {
           'LoveOrbit',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: size * 0.38,
+            fontSize: size * 0.30,
             color: scheme.primary,
             letterSpacing: 0.5,
           ),
@@ -75,8 +75,8 @@ class LoveOrbitAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       title: Image.asset(
         'assets/applogo.png',
-        width: 34,
-        height: 34,
+        width: 46,
+        height: 46,
         fit: BoxFit.contain,
       ),
       actions: actions,

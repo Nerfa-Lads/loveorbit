@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/avatar_image.dart';
@@ -394,6 +397,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 28),
 
             // ═══════════════════════════════════════════════
+            // MAP STYLE
+            // ═══════════════════════════════════════════════
+            const _SectionHeader('Map style'),
+            const SizedBox(height: 10),
+            _MapStylePicker(current: p.mapStyle, onChanged: p.setMapStyle),
+
+            const SizedBox(height: 28),
+
+            // ═══════════════════════════════════════════════
             // APPEARANCE
             // ═══════════════════════════════════════════════
             const _SectionHeader('Appearance'),
@@ -542,7 +554,7 @@ class _TrianglePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawPath(
-      Path()
+      ui.Path()
         ..moveTo(0, 0)
         ..lineTo(size.width, 0)
         ..lineTo(size.width / 2, size.height)
@@ -573,6 +585,154 @@ class _SectionHeader extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         ),
       ),
+    );
+  }
+}
+
+// ── Map style picker ──────────────────────────────────────────
+class _MapStylePicker extends StatelessWidget {
+  final String current;
+  final Future<void> Function(String) onChanged;
+
+  const _MapStylePicker({required this.current, required this.onChanged});
+
+  static const _styles = [
+    (
+      id: 'satellite',
+      label: 'Satellite',
+      icon: Icons.satellite_alt,
+      tileUrl:
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      labelUrl:
+          'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    ),
+    (
+      id: 'classic',
+      label: 'Classic',
+      icon: Icons.map_outlined,
+      tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      labelUrl: '',
+    ),
+  ];
+
+  // Manila as neutral preview center
+  static const _previewCenter = LatLng(14.5995, 120.9842);
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: _styles.map((style) {
+        final selected = current == style.id;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: style.id == 'satellite' ? 8 : 0,
+              left: style.id == 'classic' ? 8 : 0,
+            ),
+            child: GestureDetector(
+              onTap: () => onChanged(style.id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected ? scheme.primary : Colors.transparent,
+                    width: 3,
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          )
+                        ]
+                      : null,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: Stack(
+                    children: [
+                      // ── Mini map preview ───────────────
+                      SizedBox(
+                        height: 110,
+                        child: IgnorePointer(
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _previewCenter,
+                              initialZoom: 13,
+                              interactionOptions: const InteractionOptions(
+                                  flags: InteractiveFlag.none),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: style.tileUrl,
+                                tileProvider: NetworkTileProvider(
+                                  headers: {
+                                    'User-Agent':
+                                        'LoveOrbit/1.0 (contact: loveorbit.app)',
+                                  },
+                                ),
+                              ),
+                              if (style.labelUrl.isNotEmpty)
+                                TileLayer(
+                                  urlTemplate: style.labelUrl,
+                                  tileProvider: NetworkTileProvider(
+                                    headers: {
+                                      'User-Agent':
+                                          'LoveOrbit/1.0 (contact: loveorbit.app)',
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // ── Label bar at bottom ────────────
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? scheme.primary
+                                : Colors.black.withValues(alpha: 0.55),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(style.icon, size: 14, color: Colors.white),
+                              const SizedBox(width: 5),
+                              Text(
+                                style.label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (selected) ...[
+                                const SizedBox(width: 5),
+                                const Icon(Icons.check_circle,
+                                    size: 13, color: Colors.white),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

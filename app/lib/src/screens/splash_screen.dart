@@ -230,15 +230,14 @@ class OrbitMap extends StatelessWidget {
   final LatLng? partnerHomePin;
   final String? myLabel;
   final String? partnerLabel;
-
-  /// My named saved places — shown as labelled pins on the map.
   final List<NamedPin> myPlaces;
-
-  /// Partner's saved places — shown with a different tint.
   final List<NamedPin> partnerPlaces;
-
-  /// Today's GPS breadcrumbs — drawn as a route line.
   final List<LatLng> todayJourney;
+
+  /// Override tile URLs (pass from AppProvider for user-chosen style).
+  /// Falls back to AppConfig satellite tiles if null.
+  final String? tileUrl;
+  final String? labelUrl;
 
   const OrbitMap({
     super.key,
@@ -258,6 +257,8 @@ class OrbitMap extends StatelessWidget {
     this.myPlaces = const [],
     this.partnerPlaces = const [],
     this.todayJourney = const [],
+    this.tileUrl,
+    this.labelUrl,
   });
 
   @override
@@ -268,6 +269,9 @@ class OrbitMap extends StatelessWidget {
         (points.isNotEmpty ? points.first : const LatLng(0, 0));
 
     final myPinColor = myBorderColor ?? Colors.green;
+
+    final resolvedTile = tileUrl ?? AppConfig.mapTileUrl;
+    final resolvedLabel = labelUrl ?? AppConfig.mapLabelUrl;
 
     final markers = <Marker>[
       if (myLocation != null)
@@ -301,7 +305,6 @@ class OrbitMap extends StatelessWidget {
           height: 44,
           child: Icon(Icons.location_on, color: scheme.primary, size: 40),
         ),
-      // ── Home pin markers ──────────────────────────────────
       if (myHomePin != null)
         Marker(
           point: myHomePin!,
@@ -316,27 +319,19 @@ class OrbitMap extends StatelessWidget {
           height: 40,
           child: _HomePinMarker(color: scheme.primary),
         ),
-      // ── Named saved places (mine) ──────────────────────
       for (final pin in myPlaces)
         Marker(
           point: pin.point,
           width: 100,
           height: 52,
-          child: _LabelledPlaceMarker(
-            label: pin.label,
-            color: myPinColor,
-          ),
+          child: _LabelledPlaceMarker(label: pin.label, color: myPinColor),
         ),
-      // ── Partner's named places ─────────────────────────
       for (final pin in partnerPlaces)
         Marker(
           point: pin.point,
           width: 100,
           height: 52,
-          child: _LabelledPlaceMarker(
-            label: pin.label,
-            color: scheme.primary,
-          ),
+          child: _LabelledPlaceMarker(label: pin.label, color: scheme.primary),
         ),
     ];
 
@@ -356,19 +351,19 @@ class OrbitMap extends StatelessWidget {
           ),
           children: [
             TileLayer(
-              urlTemplate: AppConfig.mapTileUrl,
+              urlTemplate: resolvedTile,
               tileProvider: NetworkTileProvider(
                 headers: {
-                  'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+                  'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)'
                 },
               ),
             ),
-            if (AppConfig.mapLabelUrl.isNotEmpty)
+            if (resolvedLabel.isNotEmpty)
               TileLayer(
-                urlTemplate: AppConfig.mapLabelUrl,
+                urlTemplate: resolvedLabel,
                 tileProvider: NetworkTileProvider(
                   headers: {
-                    'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+                    'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)'
                   },
                 ),
               ),
@@ -380,7 +375,6 @@ class OrbitMap extends StatelessWidget {
                   color: scheme.primary.withValues(alpha: 0.6),
                 ),
               ]),
-            // ── Today's journey trail ──────────────────────
             if (todayJourney.length > 1)
               PolylineLayer(polylines: [
                 Polyline(

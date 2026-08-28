@@ -29,6 +29,7 @@ const String _kPinColorKey = 'pin_border_color';
 const String _kHomePinLatKey = 'home_pin_lat';
 const String _kHomePinLngKey = 'home_pin_lng';
 const String _kSavedPlacesKey = 'saved_places';
+const String _kMapStyleKey = 'map_style'; // 'satellite' | 'classic'
 
 class AppProvider extends ChangeNotifier {
   final _api = ApiService();
@@ -106,6 +107,20 @@ class AppProvider extends ChangeNotifier {
   Color _pinBorderColor = kPinBorderColors.first;
   Color get pinBorderColor => _pinBorderColor;
 
+  // ── Map style preference ──────────────────────────────────
+  String _mapStyle = 'satellite'; // 'satellite' | 'classic'
+  String get mapStyle => _mapStyle;
+
+  /// Base tile URL for the currently selected map style.
+  String get mapTileUrl => _mapStyle == 'classic'
+      ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+  /// Label overlay — only used on satellite; classic OSM already has labels.
+  String get mapLabelUrl => _mapStyle == 'classic'
+      ? ''
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+
   // ─────────────────────────────────────────────────────────
   bool get isConnected => couple?.status == 'active' && partner != null;
 
@@ -114,6 +129,7 @@ class AppProvider extends ChangeNotifier {
     await _loadPinColor();
     await _loadHomePin();
     await _loadSavedPlaces();
+    await _loadMapStyle();
     final tok = await ApiService.token;
     if (tok == null) return;
     try {
@@ -159,6 +175,23 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kPinColorKey, color.toARGB32());
+  }
+
+  // ── Map style ─────────────────────────────────────────────
+  Future<void> _loadMapStyle() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString(_kMapStyleKey);
+    if (val != null) {
+      _mapStyle = val;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setMapStyle(String style) async {
+    _mapStyle = style;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kMapStyleKey, style);
   }
 
   // ── Home pin ──────────────────────────────────────────────

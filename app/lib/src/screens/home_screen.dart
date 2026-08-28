@@ -261,6 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   myBorderColor: p.pinBorderColor,
                   myLabel: 'You',
                   partnerLabel: partner?.displayName,
+                  tileUrl: p.mapTileUrl,
+                  labelUrl: p.mapLabelUrl,
                   myHomePin: hasMyHome ? LatLng(p.homeLat!, p.homeLng!) : null,
                   partnerHomePin: hasPartnerHome
                       ? LatLng(p.partnerHomeLat!, p.partnerHomeLng!)

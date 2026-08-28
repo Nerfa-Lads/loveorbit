@@ -102,6 +102,11 @@ class OrbitMap extends StatelessWidget {
           children: [
             TileLayer(
               urlTemplate: AppConfig.mapTileUrl,
+              tileProvider: NetworkTileProvider(
+                headers: const {
+                  'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
+                },
+              ),
             ),
             if (points.length > 1)
               PolylineLayer(polylines: [

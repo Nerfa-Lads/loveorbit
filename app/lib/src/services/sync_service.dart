@@ -34,6 +34,7 @@ class SyncService {
     void Function(bool isHome)? onPartnerIsHome,
     void Function(double lat, double lng)? onPartnerHomePin,
     void Function(List<SavedPlace> places)? onPartnerPlaces,
+    void Function(LocationPoint)? onPartnerLocation,
   }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
@@ -61,6 +62,7 @@ class SyncService {
         onPartnerIsHome: onPartnerIsHome,
         onPartnerHomePin: onPartnerHomePin,
         onPartnerPlaces: onPartnerPlaces,
+        onPartnerLocation: onPartnerLocation,
       );
     }
   }
@@ -73,6 +75,7 @@ class SyncService {
     void Function(bool isHome)? onPartnerIsHome,
     void Function(double lat, double lng)? onPartnerHomePin,
     void Function(List<SavedPlace> places)? onPartnerPlaces,
+    void Function(LocationPoint)? onPartnerLocation,
   }) {
     _socket?.dispose();
     _socket = io.io(
@@ -104,7 +107,14 @@ class SyncService {
       } catch (_) {}
     });
 
-    _socket!.on('location:update', (_) {});
+    _socket!.on('location:update', (data) {
+      try {
+        if (data == null) return;
+        final d = data as Map<String, dynamic>;
+        final pt = LocationPoint.fromJson(d);
+        onPartnerLocation?.call(pt);
+      } catch (_) {}
+    });
     _socket!.on('sharing:toggle', (_) {});
 
     // ── Partner arrived home (legacy event) ───────────────

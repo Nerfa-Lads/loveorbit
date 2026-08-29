@@ -282,6 +282,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   todayJourney: p.todayJourney
                       .map((pt) => LatLng(pt.latitude, pt.longitude))
                       .toList(),
+                  partnerTodayJourney: p.partnerTodayJourney
+                      .map((pt) => LatLng(pt.latitude, pt.longitude))
+                      .toList(),
                 ),
               ),
 

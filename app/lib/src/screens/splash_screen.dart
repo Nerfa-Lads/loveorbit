@@ -233,6 +233,7 @@ class OrbitMap extends StatelessWidget {
   final List<NamedPin> myPlaces;
   final List<NamedPin> partnerPlaces;
   final List<LatLng> todayJourney;
+  final List<LatLng> partnerTodayJourney;
 
   /// Override tile URLs (pass from AppProvider for user-chosen style).
   /// Falls back to AppConfig satellite tiles if null.
@@ -257,6 +258,7 @@ class OrbitMap extends StatelessWidget {
     this.myPlaces = const [],
     this.partnerPlaces = const [],
     this.todayJourney = const [],
+    this.partnerTodayJourney = const [],
     this.tileUrl,
     this.labelUrl,
   });
@@ -381,6 +383,14 @@ class OrbitMap extends StatelessWidget {
                   points: todayJourney,
                   strokeWidth: 3,
                   color: myPinColor.withValues(alpha: 0.75),
+                ),
+              ]),
+            if (partnerTodayJourney.length > 1)
+              PolylineLayer(polylines: [
+                Polyline(
+                  points: partnerTodayJourney,
+                  strokeWidth: 3,
+                  color: scheme.primary.withValues(alpha: 0.75),
                 ),
               ]),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),

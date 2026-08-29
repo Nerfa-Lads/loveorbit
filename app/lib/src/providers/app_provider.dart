@@ -11,6 +11,9 @@ import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
 
+// How often to run the geofence check while sharing is active.
+const Duration _kGeofenceInterval = Duration(seconds: 30);
+
 // Default available pin border colors
 const List<Color> kPinBorderColors = [
   Color(0xFF4CAF50), // Green (default)
@@ -61,6 +64,8 @@ class AppProvider extends ChangeNotifier {
     _myLng = lng;
     // Broadcast home:arrived to partner if we just arrived home
     if (amIHome) SyncService.instance.emitHomeArrived();
+    // Run full geofence check (home + all saved places)
+    _checkGeofences(lat, lng);
     notifyListeners();
   }
 
@@ -91,6 +96,9 @@ class AppProvider extends ChangeNotifier {
   final List<LocationPoint> todayJourney = [];
   StreamSubscription<LocationPoint>? _journeySub;
 
+  /// Partner's GPS breadcrumbs for today (received via socket).
+  final List<LocationPoint> partnerTodayJourney = [];
+
   // ── Battery ───────────────────────────────────────────────
   /// My own battery level (0–100). -1 = unknown.
   int myBattery = -1;
@@ -102,6 +110,12 @@ class AppProvider extends ChangeNotifier {
   BatteryState partnerBatteryState = BatteryState.unknown;
 
   StreamSubscription<BatteryState>? _batteryStateSub;
+
+  // ── Geofence ──────────────────────────────────────────────
+  /// Tracks which place labels the user was already inside,
+  /// so we don't re-fire the same notification on every tick.
+  final Set<String> _insidePlaces = {};
+  Timer? _geofenceTimer;
 
   // ── Pin border color preference ───────────────────────────
   Color _pinBorderColor = kPinBorderColors.first;
@@ -146,6 +160,7 @@ class AppProvider extends ChangeNotifier {
         onPartnerIsHome: _onPartnerIsHome,
         onPartnerHomePin: _onPartnerHomePin,
         onPartnerPlaces: _onPartnerPlaces,
+        onPartnerLocation: addPartnerJourneyPoint,
       );
       _listenSync();
       await _initBattery();
@@ -231,14 +246,22 @@ class AppProvider extends ChangeNotifier {
   Future<void> _initBattery() async {
     try {
       myBattery = await _battery.batteryLevel;
-      SyncService.instance.emitBattery(level: myBattery);
+      final state = await _battery.batteryState;
+      SyncService.instance.emitBattery(
+        level: myBattery,
+        state: _batteryStateString(state),
+      );
     } catch (_) {}
 
     _batteryStateSub?.cancel();
     _batteryStateSub = _battery.onBatteryStateChanged.listen((_) async {
       try {
         myBattery = await _battery.batteryLevel;
-        SyncService.instance.emitBattery(level: myBattery);
+        final state = await _battery.batteryState;
+        SyncService.instance.emitBattery(
+          level: myBattery,
+          state: _batteryStateString(state),
+        );
         notifyListeners();
       } catch (_) {}
     });
@@ -328,8 +351,12 @@ class AppProvider extends ChangeNotifier {
       if (pt.recordedAt.isAfter(midnight)) {
         todayJourney.add(pt);
         notifyListeners();
+        // Run geofence check on every new GPS point too
+        _checkGeofences(pt.latitude, pt.longitude);
       }
     });
+    // Also start the periodic geofence timer
+    _startGeofenceTimer();
   }
 
   Future<void> _seedTodayJourney() async {
@@ -340,6 +367,72 @@ class AppProvider extends ChangeNotifier {
       ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
     if (today.isNotEmpty) {
       todayJourney.addAll(today);
+      notifyListeners();
+    }
+  }
+
+  // ── Geofence ──────────────────────────────────────────────
+  void _startGeofenceTimer() {
+    _geofenceTimer?.cancel();
+    _geofenceTimer = Timer.periodic(_kGeofenceInterval, (_) async {
+      if (_myLat == null || _myLng == null) return;
+      _checkGeofences(_myLat!, _myLng!);
+    });
+  }
+
+  void _stopGeofenceTimer() {
+    _geofenceTimer?.cancel();
+    _geofenceTimer = null;
+  }
+
+  /// Check whether the user has entered or left any saved place (including home).
+  /// Fires a notification on entry and emits home:arrived if at home pin.
+  void _checkGeofences(double lat, double lng) {
+    const double radius = 200; // metres
+    final currentlyInside = <String>{};
+
+    // Check home pin
+    if (homeLat != null && homeLng != null) {
+      final d = _distanceMeters(lat, lng, homeLat!, homeLng!);
+      if (d < radius) {
+        currentlyInside.add('__home__');
+        if (!_insidePlaces.contains('__home__')) {
+          // Just entered home
+          SyncService.instance.emitHomeArrived();
+          NotificationService.notify(
+            title: 'You\'re home 🏠',
+            body: 'Welcome back!',
+          );
+        }
+      }
+    }
+
+    // Check all saved places
+    for (final place in savedPlaces) {
+      final d = _distanceMeters(lat, lng, place.lat, place.lng);
+      if (d < radius) {
+        currentlyInside.add(place.id);
+        if (!_insidePlaces.contains(place.id)) {
+          // Just entered this place
+          NotificationService.notify(
+            title: 'You arrived at ${place.label}',
+            body: 'Your partner can see your location.',
+          );
+        }
+      }
+    }
+
+    _insidePlaces
+      ..clear()
+      ..addAll(currentlyInside);
+  }
+
+  /// Add a partner location point to today's trail.
+  void addPartnerJourneyPoint(LocationPoint pt) {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day);
+    if (pt.recordedAt.isAfter(midnight)) {
+      partnerTodayJourney.add(pt);
       notifyListeners();
     }
   }
@@ -388,6 +481,19 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  String _batteryStateString(BatteryState s) {
+    switch (s) {
+      case BatteryState.charging:
+        return 'charging';
+      case BatteryState.full:
+        return 'full';
+      case BatteryState.discharging:
+        return 'discharging';
+      default:
+        return 'unknown';
+    }
+  }
+
   // ── Auth ──────────────────────────────────────────────────
   Future<void> register(String username, String password, String name) async {
     final r = await _api.register(
@@ -401,6 +507,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerIsHome: _onPartnerIsHome,
       onPartnerHomePin: _onPartnerHomePin,
       onPartnerPlaces: _onPartnerPlaces,
+      onPartnerLocation: addPartnerJourneyPoint,
     );
     _listenSync();
     await _initBattery();
@@ -422,6 +529,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerIsHome: _onPartnerIsHome,
       onPartnerHomePin: _onPartnerHomePin,
       onPartnerPlaces: _onPartnerPlaces,
+      onPartnerLocation: addPartnerJourneyPoint,
     );
     _listenSync();
     await _initBattery();
@@ -434,6 +542,8 @@ class AppProvider extends ChangeNotifier {
     await _batteryStateSub?.cancel();
     await _journeySub?.cancel();
     _journeySub = null;
+    _stopGeofenceTimer();
+    _insidePlaces.clear();
     await LocationService.instance.stopRecording();
     await SyncService.instance.dispose();
     await ApiService.clearToken();
@@ -447,6 +557,7 @@ class AppProvider extends ChangeNotifier {
     partnerHomeLng = null;
     partnerPlaces = [];
     todayJourney.clear();
+    partnerTodayJourney.clear();
     notifyListeners();
   }
 
@@ -509,8 +620,10 @@ class AppProvider extends ChangeNotifier {
     SyncService.instance.emitSharing(sharing: sharing, paused: paused);
     if (on && !paused) {
       await LocationService.instance.startRecording();
+      _startGeofenceTimer();
     } else {
       await LocationService.instance.stopRecording();
+      _stopGeofenceTimer();
     }
     notifyListeners();
   }
@@ -520,6 +633,7 @@ class AppProvider extends ChangeNotifier {
     paused = false;
     await _api.setSharing(sharing: false, paused: false);
     await LocationService.instance.stopRecording();
+    _stopGeofenceTimer();
     notifyListeners();
   }
 

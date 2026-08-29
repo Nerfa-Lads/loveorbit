@@ -8,7 +8,6 @@ import '../providers/app_provider.dart';
 import '../services/location_service.dart';
 import '../widgets/avatar_image.dart';
 import '../widgets/loveorbit_app_bar.dart';
-import 'home_pin_picker_screen.dart';
 import 'places_screen.dart';
 import 'splash_screen.dart' show OrbitMap, computeDwellPoints;
 
@@ -105,7 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _locLoading = false;
     });
     if (pt != null) {
-      // Update provider so home-arrival detection runs
       context.read<AppProvider>().setMyCurrentLoc(pt.latitude, pt.longitude);
       final name = await _placeName(pt.latitude, pt.longitude);
       if (mounted) setState(() => _myPlaceName = name);
@@ -115,47 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchPartnerPlace(LocationPoint pt) async {
     final name = await _placeName(pt.latitude, pt.longitude);
     if (mounted) setState(() => _partnerPlaceName = name);
-  }
-
-  Future<void> _openHomePinPicker() async {
-    final p = context.read<AppProvider>();
-
-    // Current GPS to centre the map
-    final currentLl = _myLocation != null
-        ? LatLng(_myLocation!.latitude, _myLocation!.longitude)
-        : null;
-
-    // Existing pin so the picker opens with it already placed
-    final existingLl = (p.homeLat != null && p.homeLng != null)
-        ? LatLng(p.homeLat!, p.homeLng!)
-        : null;
-
-    final result = await Navigator.push<LatLng>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HomePinPickerScreen(
-          initial: existingLl,
-          currentLocation: currentLl,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-    await p.setHomePin(result.latitude, result.longitude);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Home pinned! Your partner will see it. 🏠')),
-    );
-  }
-
-  Future<void> _clearHomePin() async {
-    final p = context.read<AppProvider>();
-    await p.clearHomePin();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Home pin removed.')),
-    );
   }
 
   @override
@@ -378,17 +335,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 16),
 
-            // ── Home pin card ─────────────────────────────────
-            if (p.isConnected) ...[
-              _HomePinCard(
-                hasPin: hasMyHome,
-                isHome: p.amIHome,
-                onSet: _openHomePinPicker,
-                onClear: _clearHomePin,
-              ),
-              const SizedBox(height: 12),
-            ],
-
             // ── Sharing toggle ────────────────────────────────
             if (p.isConnected) ...[
               _SharingCard(),
@@ -604,93 +550,7 @@ class _PhoneStatusBadge extends StatelessWidget {
   }
 }
 
-// ── Home pin card ─────────────────────────────────────────────
-class _HomePinCard extends StatelessWidget {
-  final bool hasPin;
-  final bool isHome;
-  final VoidCallback onSet;
-  final VoidCallback onClear;
-
-  const _HomePinCard({
-    required this.hasPin,
-    required this.isHome,
-    required this.onSet,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: isHome
-                  ? Colors.green.withValues(alpha: 0.15)
-                  : scheme.primaryContainer,
-              child: Icon(
-                Icons.home,
-                color: isHome ? Colors.green : scheme.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasPin
-                        ? (isHome ? 'You\'re home 🏠' : 'Home pin set')
-                        : 'Pin your home',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                  Text(
-                    hasPin
-                        ? 'Your partner is notified when you arrive.'
-                        : 'Let your partner know when you\'re home.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (!hasPin)
-              FilledButton.icon(
-                icon: const Icon(Icons.push_pin, size: 16),
-                label: const Text('Pin'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  textStyle: const TextStyle(fontSize: 13),
-                ),
-                onPressed: onSet,
-              )
-            else
-              OutlinedButton.icon(
-                icon: const Icon(Icons.close, size: 16),
-                label: const Text('Remove'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                  textStyle: const TextStyle(fontSize: 13),
-                ),
-                onPressed: onClear,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// ── Sharing card ──────────────────────────────────────────────
 class _SharingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

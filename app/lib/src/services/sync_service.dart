@@ -38,6 +38,7 @@ class SyncService {
     void Function(LocationPoint)? onPartnerLocation,
     void Function(int colorValue)? onPartnerPinColor,
     void Function(bool active)? onPartnerPhoneActive,
+    void Function(String label)? onPartnerPlaceArrived,
   }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
@@ -68,6 +69,7 @@ class SyncService {
         onPartnerLocation: onPartnerLocation,
         onPartnerPinColor: onPartnerPinColor,
         onPartnerPhoneActive: onPartnerPhoneActive,
+        onPartnerPlaceArrived: onPartnerPlaceArrived,
       );
     }
   }
@@ -83,6 +85,7 @@ class SyncService {
     void Function(LocationPoint)? onPartnerLocation,
     void Function(int colorValue)? onPartnerPinColor,
     void Function(bool active)? onPartnerPhoneActive,
+    void Function(String label)? onPartnerPlaceArrived,
   }) {
     _socket?.dispose();
     _socket = io.io(
@@ -184,6 +187,15 @@ class SyncService {
         onPartnerPhoneActive?.call(active);
       } catch (_) {}
     });
+
+    // ── Partner arrived at a named place ───────────────────
+    _socket!.on('place:arrived', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final label = d['label'] as String? ?? '';
+        if (label.isNotEmpty) onPartnerPlaceArrived?.call(label);
+      } catch (_) {}
+    });
   }
 
   // ── Emitters ──────────────────────────────────────────────
@@ -200,6 +212,14 @@ class SyncService {
   void emitHomeArrived() {
     _socket?.emit('home:arrived',
         {'timestamp': DateTime.now().toUtc().toIso8601String()});
+  }
+
+  /// Broadcast that the user has arrived at a named saved place.
+  void emitPlaceArrived(String label) {
+    _socket?.emit('place:arrived', {
+      'label': label,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   /// Share the user's home pin coordinates with their partner.

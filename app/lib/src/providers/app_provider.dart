@@ -173,6 +173,7 @@ class AppProvider extends ChangeNotifier {
         onPartnerLocation: addPartnerJourneyPoint,
         onPartnerPinColor: _onPartnerPinColor,
         onPartnerPhoneActive: _onPartnerPhoneActive,
+        onPartnerPlaceArrived: _onPartnerPlaceArrived,
       );
       _listenSync();
       await _initBattery();
@@ -327,6 +328,14 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onPartnerPlaceArrived(String label) {
+    if (partner == null) return;
+    NotificationService.notify(
+      title: '${partner!.displayName} arrived at $label',
+      body: 'They just reached one of their saved places.',
+    );
+  }
+
   // ── Saved places ──────────────────────────────────────────
   Future<void> _loadSavedPlaces() async {
     final prefs = await SharedPreferences.getInstance();
@@ -464,10 +473,11 @@ class AppProvider extends ChangeNotifier {
       if (d < radius) {
         currentlyInside.add(place.id);
         if (!_insidePlaces.contains(place.id)) {
-          // Just entered this place
+          // Just entered this place — notify locally and tell partner
+          SyncService.instance.emitPlaceArrived(place.label);
           NotificationService.notify(
             title: 'You arrived at ${place.label}',
-            body: 'Your partner can see your location.',
+            body: 'Your partner has been notified.',
           );
         }
       }
@@ -561,6 +571,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerLocation: addPartnerJourneyPoint,
       onPartnerPinColor: _onPartnerPinColor,
       onPartnerPhoneActive: _onPartnerPhoneActive,
+      onPartnerPlaceArrived: _onPartnerPlaceArrived,
     );
     _listenSync();
     await _initBattery();
@@ -587,6 +598,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerLocation: addPartnerJourneyPoint,
       onPartnerPinColor: _onPartnerPinColor,
       onPartnerPhoneActive: _onPartnerPhoneActive,
+      onPartnerPlaceArrived: _onPartnerPlaceArrived,
     );
     _listenSync();
     await _initBattery();

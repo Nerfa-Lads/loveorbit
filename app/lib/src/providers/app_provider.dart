@@ -14,6 +14,9 @@ import '../services/sync_service.dart';
 // How often to run the geofence check while sharing is active.
 const Duration _kGeofenceInterval = Duration(seconds: 30);
 
+/// Movement mode derived from GPS speed.
+enum MovementMode { unknown, still, walking, running, vehicle }
+
 // Default available pin border colors
 const List<Color> kPinBorderColors = [
   Color(0xFF4CAF50), // Green (default)
@@ -118,6 +121,13 @@ class AppProvider extends ChangeNotifier {
   /// null = unknown (never received a status yet).
   bool? partnerPhoneActive;
 
+  // ── Movement mode ─────────────────────────────────────────
+  /// My current movement mode derived from GPS speed.
+  MovementMode myMovementMode = MovementMode.unknown;
+
+  /// Partner's current movement mode (received via socket).
+  MovementMode partnerMovementMode = MovementMode.unknown;
+
   // ── Geofence ──────────────────────────────────────────────
   /// Tracks which place labels the user was already inside,
   /// so we don't re-fire the same notification on every tick.
@@ -174,6 +184,7 @@ class AppProvider extends ChangeNotifier {
         onPartnerPinColor: _onPartnerPinColor,
         onPartnerPhoneActive: _onPartnerPhoneActive,
         onPartnerPlaceArrived: _onPartnerPlaceArrived,
+        onPartnerMovement: _onPartnerMovement,
       );
       _listenSync();
       await _initBattery();
@@ -336,6 +347,23 @@ class AppProvider extends ChangeNotifier {
     );
   }
 
+  /// Derive movement mode from GPS speed (m/s).
+  static MovementMode _speedToMode(double speedMs) {
+    final kmh = speedMs * 3.6;
+    if (kmh < 1) return MovementMode.still;
+    if (kmh < 7) return MovementMode.walking;
+    if (kmh < 20) return MovementMode.running;
+    return MovementMode.vehicle;
+  }
+
+  void _onPartnerMovement(String mode) {
+    partnerMovementMode = MovementMode.values.firstWhere(
+      (m) => m.name == mode,
+      orElse: () => MovementMode.unknown,
+    );
+    notifyListeners();
+  }
+
   // ── Saved places ──────────────────────────────────────────
   Future<void> _loadSavedPlaces() async {
     final prefs = await SharedPreferences.getInstance();
@@ -393,6 +421,12 @@ class AppProvider extends ChangeNotifier {
       final midnight = DateTime(now.year, now.month, now.day);
       if (pt.recordedAt.isAfter(midnight)) {
         todayJourney.add(pt);
+        // Update movement mode from speed
+        final mode = _speedToMode(pt.speed ?? 0);
+        if (mode != myMovementMode) {
+          myMovementMode = mode;
+          SyncService.instance.emitMovement(mode);
+        }
         notifyListeners();
         // Run geofence check on every new GPS point too
         _checkGeofences(pt.latitude, pt.longitude);
@@ -608,6 +642,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerPinColor: _onPartnerPinColor,
       onPartnerPhoneActive: _onPartnerPhoneActive,
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
+      onPartnerMovement: _onPartnerMovement,
     );
     _listenSync();
     await _initBattery();
@@ -635,6 +670,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerPinColor: _onPartnerPinColor,
       onPartnerPhoneActive: _onPartnerPhoneActive,
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
+      onPartnerMovement: _onPartnerMovement,
     );
     _listenSync();
     await _initBattery();
@@ -668,6 +704,8 @@ class AppProvider extends ChangeNotifier {
     todayJourney.clear();
     partnerTodayJourney.clear();
     partnerPhoneActive = null;
+    partnerMovementMode = MovementMode.unknown;
+    myMovementMode = MovementMode.unknown;
     notifyListeners();
   }
 
@@ -780,13 +818,31 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// Send a pre-built voice message (media already uploaded).
+  Future<void> sendVoiceMessage(ChatMessage m) async {
+    await LocalStore.queueMessage(m);
+    messages = [...messages, m];
+    notifyListeners();
+    if (online) {
+      try {
+        SyncService.instance.emitMessage(m);
+        final saved = await _api.sendMessages([m]);
+        if (saved.contains(m.clientUid)) {
+          await LocalStore.clearMessages([m.clientUid]);
+        }
+      } catch (_) {}
+    }
+  }
+
   void _onIncoming(ChatMessage m) {
     if (m.receiverId != _myId) return;
     messages = [...messages, m];
     notifyListeners();
     NotificationService.notify(
       title: partner?.displayName ?? 'LoveOrbit',
-      body: m.isPhoto ? 'Sent a photo' : (m.body ?? ''),
+      body: m.isVoice
+          ? '🎤 Voice note'
+          : (m.isPhoto ? 'Sent a photo 📷' : (m.body ?? '')),
     );
     _api.markStatus([m.id!], 'delivered');
   }

@@ -312,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         battery: p.myBattery,
                         batteryState: BatteryState.unknown,
                         phoneActive: true,
+                        movementMode: p.myMovementMode,
                       ),
                     ),
                   if (_myLocation != null && partnerPt != null)
@@ -328,6 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         battery: p.partnerBattery,
                         batteryState: p.partnerBatteryState,
                         phoneActive: p.partnerPhoneActive,
+                        movementMode: p.partnerMovementMode,
                       ),
                     ),
                 ],
@@ -374,9 +376,8 @@ class _LocationCard extends StatelessWidget {
   final bool isHome;
   final int battery;
   final BatteryState batteryState;
-
-  /// null = unknown, true = phone active/in use, false = screen off/idle
   final bool? phoneActive;
+  final MovementMode movementMode;
 
   const _LocationCard({
     required this.label,
@@ -388,6 +389,7 @@ class _LocationCard extends StatelessWidget {
     required this.battery,
     required this.batteryState,
     this.phoneActive,
+    this.movementMode = MovementMode.unknown,
   });
 
   String _ago(DateTime t) {
@@ -429,6 +431,12 @@ class _LocationCard extends StatelessWidget {
               if (phoneActive != null) ...[
                 const SizedBox(width: 4),
                 _PhoneStatusBadge(active: phoneActive!),
+              ],
+              // Movement badge
+              if (movementMode != MovementMode.unknown &&
+                  movementMode != MovementMode.still) ...[
+                const SizedBox(width: 4),
+                _MovementBadge(mode: movementMode),
               ],
               // At-home badge
               if (isHome) ...[
@@ -502,6 +510,38 @@ class _LocationCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Movement badge ────────────────────────────────────────────
+class _MovementBadge extends StatelessWidget {
+  final MovementMode mode;
+  const _MovementBadge({required this.mode});
+
+  String get _emoji {
+    switch (mode) {
+      case MovementMode.walking:
+        return '🚶';
+      case MovementMode.running:
+        return '🏃';
+      case MovementMode.vehicle:
+        return '🚗';
+      default:
+        return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Text(_emoji, style: const TextStyle(fontSize: 11)),
     );
   }
 }

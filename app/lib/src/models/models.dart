@@ -145,7 +145,10 @@ class ChatMessage {
   });
 
   bool get isMine => senderId == receiverId ? false : true; // set by provider
-  bool get isPhoto => mediaId != null || mediaUrl != null;
+  bool get isPhoto =>
+      (mediaContentType?.startsWith('image') ?? false) ||
+      (mediaUrl != null && !(mediaContentType?.startsWith('audio') ?? false));
+  bool get isVoice => mediaContentType?.startsWith('audio') ?? false;
 
   factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
         id: j['id'] as String?,

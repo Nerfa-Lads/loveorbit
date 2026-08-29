@@ -9,7 +9,7 @@ class PrivacyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<AppProvider>();
-    final active = p.sharing && !p.paused;
+    final active = p.sharing;
     return Scaffold(
       appBar: const LoveOrbitAppBar(screenTitle: 'Privacy'),
       body: SafeArea(
@@ -64,16 +64,6 @@ class PrivacyScreen extends StatelessWidget {
               value: p.sharing,
               onChanged: (v) => p.setSharing(on: v),
             ),
-            // Pause toggle
-            if (p.sharing)
-              SwitchListTile(
-                secondary: const Icon(Icons.pause_circle_outline),
-                title: const Text('Pause sharing'),
-                subtitle:
-                    const Text('Temporarily stop sharing without turning off'),
-                value: p.paused,
-                onChanged: (v) => p.setSharing(on: true, pause: v),
-              ),
             const Divider(),
             // Delete location history
             ListTile(

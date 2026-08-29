@@ -622,7 +622,7 @@ class _SharingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<AppProvider>();
-    final active = p.sharing && !p.paused;
+    final active = p.sharing;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -648,23 +648,12 @@ class _SharingCard extends StatelessWidget {
             Text(
               active
                   ? 'Sharing is ON — your partner can see your location.'
-                  : (p.paused
-                      ? 'Paused — sharing is temporarily off.'
-                      : 'Sharing is OFF.'),
+                  : 'Sharing is OFF.',
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
                   ?.copyWith(color: Colors.grey),
             ),
-            if (p.sharing)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: TextButton.icon(
-                  icon: Icon(p.paused ? Icons.play_arrow : Icons.pause),
-                  label: Text(p.paused ? 'Resume' : 'Pause'),
-                  onPressed: () => p.setSharing(on: true, pause: !p.paused),
-                ),
-              ),
           ],
         ),
       ),

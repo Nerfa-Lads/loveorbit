@@ -42,7 +42,6 @@ class AppProvider extends ChangeNotifier {
   Couple? couple;
   Partner? partner;
   bool sharing = false;
-  bool paused = false;
   bool online = false;
   bool syncing = false;
   LocationPoint? partnerLatest;
@@ -650,16 +649,14 @@ class AppProvider extends ChangeNotifier {
   Future<void> loadSharing() async {
     final s = await _api.getSharing();
     sharing = s.sharing;
-    paused = s.paused;
     notifyListeners();
   }
 
-  Future<void> setSharing({required bool on, bool? pause}) async {
+  Future<void> setSharing({required bool on}) async {
     sharing = on;
-    paused = pause ?? (on ? false : paused);
-    await _api.setSharing(sharing: sharing, paused: paused);
-    SyncService.instance.emitSharing(sharing: sharing, paused: paused);
-    if (on && !paused) {
+    await _api.setSharing(sharing: sharing, paused: false);
+    SyncService.instance.emitSharing(sharing: sharing, paused: false);
+    if (on) {
       await LocationService.instance.startRecording();
       _startGeofenceTimer();
     } else {
@@ -671,7 +668,6 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> stopSharing() async {
     sharing = false;
-    paused = false;
     await _api.setSharing(sharing: false, paused: false);
     await LocationService.instance.stopRecording();
     _stopGeofenceTimer();

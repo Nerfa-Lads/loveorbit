@@ -30,7 +30,7 @@ dependencies:
   battery_plus: ^6.0.1
   image_cropper: ^9.1.0
   geocoding: ^3.0.0
-  record: ^5.2.0
+  record: ^6.0.0
   just_audio: ^0.9.40
 
 dev_dependencies:

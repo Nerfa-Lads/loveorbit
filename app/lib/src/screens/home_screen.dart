@@ -335,8 +335,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 16),
 
-            // ── Sharing toggle ────────────────────────────────
-            if (p.isConnected) ...[
+            // ── Sharing toggle — only shown when sharing is OFF ──
+            if (p.isConnected && !p.sharing) ...[
               _SharingCard(),
               const SizedBox(height: 16),
             ],
@@ -555,37 +555,43 @@ class _SharingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<AppProvider>();
-    final active = p.sharing;
     return Card(
+      color: Colors.orange.withValues(alpha: 0.08),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(14),
+        child: Row(
           children: [
-            Row(children: [
-              Icon(active ? Icons.location_on : Icons.location_off,
-                  color: active ? Colors.green : Colors.grey),
-              const SizedBox(width: 8),
-              Text('Location sharing',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Switch(
-                value: p.sharing,
-                onChanged: (v) => p.setSharing(on: v),
+            const Icon(Icons.location_off, color: Colors.orange, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Location sharing is OFF',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.orange),
+                  ),
+                  Text(
+                    'Your partner can\'t see your location. Turn it on in Privacy.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
               ),
-            ]),
-            const SizedBox(height: 8),
-            Text(
-              active
-                  ? 'Sharing is ON — your partner can see your location.'
-                  : 'Sharing is OFF.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.grey),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: const Size(0, 34),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+              onPressed: () => p.setSharing(on: true),
+              child: const Text('Turn on'),
             ),
           ],
         ),

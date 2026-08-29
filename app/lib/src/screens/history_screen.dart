@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import '../config/app_config.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../services/api_service.dart';
@@ -159,6 +158,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               color: _showMine
                                   ? p.pinBorderColor
                                   : p.partnerPinBorderColor,
+                              tileUrl: p.mapTileUrl,
+                              labelUrl: p.mapLabelUrl,
                             );
                           },
                         ),
@@ -220,11 +221,15 @@ class _DayCard extends StatefulWidget {
   final String dateKey; // yyyy-MM-dd
   final List<LocationPoint> points;
   final Color color;
+  final String tileUrl;
+  final String labelUrl;
 
   const _DayCard({
     required this.dateKey,
     required this.points,
     required this.color,
+    required this.tileUrl,
+    required this.labelUrl,
   });
 
   @override
@@ -322,9 +327,14 @@ class _DayCardState extends State<_DayCard> {
   String get _timeRange {
     final first = widget.points.first.recordedAt.toLocal();
     final last = widget.points.last.recordedAt.toLocal();
-    String fmt(DateTime t) =>
-        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    return '${fmt(first)} – ${fmt(last)}';
+    return '${_fmt12(first)} – ${_fmt12(last)}';
+  }
+
+  static String _fmt12(DateTime t) {
+    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final m = t.minute.toString().padLeft(2, '0');
+    final ampm = t.hour < 12 ? 'AM' : 'PM';
+    return '$h:$m $ampm';
   }
 
   @override
@@ -401,7 +411,12 @@ class _DayCardState extends State<_DayCard> {
             // Route map
             SizedBox(
               height: 220,
-              child: _RouteMap(points: widget.points, color: widget.color),
+              child: _RouteMap(
+                points: widget.points,
+                color: widget.color,
+                tileUrl: widget.tileUrl,
+                labelUrl: widget.labelUrl,
+              ),
             ),
             // Stats row
             Padding(
@@ -415,18 +430,21 @@ class _DayCardState extends State<_DayCard> {
                         ? '${(km * 1000).toStringAsFixed(0)} m'
                         : '${km.toStringAsFixed(2)} km',
                     label: 'Distance',
+                    tooltip: 'Total distance traveled',
                     color: widget.color,
                   ),
                   _Stat(
                     icon: Icons.schedule,
                     value: _duration,
                     label: 'Duration',
+                    tooltip: 'Time from first to last recorded point',
                     color: widget.color,
                   ),
                   _Stat(
                     icon: Icons.pin_drop,
                     value: '${widget.points.length}',
-                    label: 'Points',
+                    label: 'GPS pts',
+                    tooltip: 'Number of GPS points recorded',
                     color: widget.color,
                   ),
                 ],
@@ -489,7 +507,7 @@ class _DayCardState extends State<_DayCard> {
                                     style: const TextStyle(fontSize: 12),
                                   ),
                             Text(
-                              _fmtTime(pt.recordedAt),
+                              _fmt12(pt.recordedAt.toLocal()),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.grey.shade500),
                             ),
@@ -514,19 +532,21 @@ class _DayCardState extends State<_DayCard> {
     if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
     return '${d.inMinutes}m';
   }
-
-  String _fmtTime(DateTime t) {
-    final l = t.toLocal();
-    return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
-  }
 }
 
 // ── Map widget ────────────────────────────────────────────────
 class _RouteMap extends StatelessWidget {
   final List<LocationPoint> points;
   final Color color;
+  final String tileUrl;
+  final String labelUrl;
 
-  const _RouteMap({required this.points, required this.color});
+  const _RouteMap({
+    required this.points,
+    required this.color,
+    required this.tileUrl,
+    required this.labelUrl,
+  });
 
   List<LatLng> get _latLngs =>
       points.map((p) => LatLng(p.latitude, p.longitude)).toList();
@@ -555,16 +575,16 @@ class _RouteMap extends StatelessWidget {
       options: MapOptions(initialCenter: _center, initialZoom: 13),
       children: [
         TileLayer(
-          urlTemplate: AppConfig.mapTileUrl,
+          urlTemplate: tileUrl,
           tileProvider: NetworkTileProvider(
             headers: {
               'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
             },
           ),
         ),
-        if (AppConfig.mapLabelUrl.isNotEmpty)
+        if (labelUrl.isNotEmpty)
           TileLayer(
-            urlTemplate: AppConfig.mapLabelUrl,
+            urlTemplate: labelUrl,
             tileProvider: NetworkTileProvider(
               headers: {
                 'User-Agent': 'LoveOrbit/1.0 (contact: loveorbit.app)',
@@ -669,25 +689,32 @@ class _Stat extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
+  final String tooltip;
   final Color color;
 
-  const _Stat(
-      {required this.icon,
-      required this.value,
-      required this.label,
-      required this.color});
+  const _Stat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.tooltip,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 2),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-        Text(label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-      ],
+    return Tooltip(
+      message: tooltip,
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 2),
+          Text(value,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ],
+      ),
     );
   }
 }

@@ -99,6 +99,9 @@ class AppProvider extends ChangeNotifier {
   /// Partner's GPS breadcrumbs for today (received via socket).
   final List<LocationPoint> partnerTodayJourney = [];
 
+  // ── Midnight reset ────────────────────────────────────────
+  Timer? _midnightTimer;
+
   // ── Battery ───────────────────────────────────────────────
   /// My own battery level (0–100). -1 = unknown.
   int myBattery = -1;
@@ -120,6 +123,9 @@ class AppProvider extends ChangeNotifier {
   // ── Pin border color preference ───────────────────────────
   Color _pinBorderColor = kPinBorderColors.first;
   Color get pinBorderColor => _pinBorderColor;
+
+  /// Partner's chosen pin border color (received via socket).
+  Color partnerPinBorderColor = const Color(0xFF4CAF50);
 
   // ── Map style preference ──────────────────────────────────
   String _mapStyle = 'satellite'; // 'satellite' | 'classic'
@@ -161,10 +167,13 @@ class AppProvider extends ChangeNotifier {
         onPartnerHomePin: _onPartnerHomePin,
         onPartnerPlaces: _onPartnerPlaces,
         onPartnerLocation: addPartnerJourneyPoint,
+        onPartnerPinColor: _onPartnerPinColor,
       );
       _listenSync();
       await _initBattery();
       _startJourneyTracking();
+      // Share our pin color with partner on connect
+      SyncService.instance.emitPinColor(_pinBorderColor);
       notifyListeners();
     } catch (e) {
       final msg = e.toString();
@@ -190,6 +199,8 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kPinColorKey, color.toARGB32());
+    // Broadcast chosen color to partner
+    SyncService.instance.emitPinColor(color);
   }
 
   // ── Map style ─────────────────────────────────────────────
@@ -295,6 +306,11 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onPartnerPinColor(int colorValue) {
+    partnerPinBorderColor = Color(colorValue);
+    notifyListeners();
+  }
+
   // ── Saved places ──────────────────────────────────────────
   Future<void> _loadSavedPlaces() async {
     final prefs = await SharedPreferences.getInstance();
@@ -357,6 +373,8 @@ class AppProvider extends ChangeNotifier {
     });
     // Also start the periodic geofence timer
     _startGeofenceTimer();
+    // Schedule trail reset at next midnight
+    _scheduleMidnightReset();
   }
 
   Future<void> _seedTodayJourney() async {
@@ -369,6 +387,23 @@ class AppProvider extends ChangeNotifier {
       todayJourney.addAll(today);
       notifyListeners();
     }
+  }
+
+  // ── Midnight reset ────────────────────────────────────────
+  void _scheduleMidnightReset() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight =
+        DateTime(now.year, now.month, now.day + 1); // next calendar day
+    final delay = nextMidnight.difference(now);
+    _midnightTimer = Timer(delay, () {
+      todayJourney.clear();
+      partnerTodayJourney.clear();
+      _insidePlaces.clear();
+      notifyListeners();
+      // Schedule the next day's reset
+      _scheduleMidnightReset();
+    });
   }
 
   // ── Geofence ──────────────────────────────────────────────
@@ -508,10 +543,12 @@ class AppProvider extends ChangeNotifier {
       onPartnerHomePin: _onPartnerHomePin,
       onPartnerPlaces: _onPartnerPlaces,
       onPartnerLocation: addPartnerJourneyPoint,
+      onPartnerPinColor: _onPartnerPinColor,
     );
     _listenSync();
     await _initBattery();
     _startJourneyTracking();
+    SyncService.instance.emitPinColor(_pinBorderColor);
     notifyListeners();
   }
 
@@ -530,10 +567,12 @@ class AppProvider extends ChangeNotifier {
       onPartnerHomePin: _onPartnerHomePin,
       onPartnerPlaces: _onPartnerPlaces,
       onPartnerLocation: addPartnerJourneyPoint,
+      onPartnerPinColor: _onPartnerPinColor,
     );
     _listenSync();
     await _initBattery();
     _startJourneyTracking();
+    SyncService.instance.emitPinColor(_pinBorderColor);
     notifyListeners();
   }
 
@@ -544,6 +583,8 @@ class AppProvider extends ChangeNotifier {
     _journeySub = null;
     _stopGeofenceTimer();
     _insidePlaces.clear();
+    _midnightTimer?.cancel();
+    _midnightTimer = null;
     await LocationService.instance.stopRecording();
     await SyncService.instance.dispose();
     await ApiService.clearToken();

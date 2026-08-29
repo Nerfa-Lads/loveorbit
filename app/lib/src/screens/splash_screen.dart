@@ -234,6 +234,7 @@ class OrbitMap extends StatelessWidget {
   final List<NamedPin> partnerPlaces;
   final List<LatLng> todayJourney;
   final List<LatLng> partnerTodayJourney;
+  final Color? partnerBorderColor;
 
   /// Override tile URLs (pass from AppProvider for user-chosen style).
   /// Falls back to AppConfig satellite tiles if null.
@@ -251,6 +252,7 @@ class OrbitMap extends StatelessWidget {
     this.myAvatarUrl,
     this.partnerAvatarUrl,
     this.myBorderColor,
+    this.partnerBorderColor,
     this.myHomePin,
     this.partnerHomePin,
     this.myLabel,
@@ -271,6 +273,7 @@ class OrbitMap extends StatelessWidget {
         (points.isNotEmpty ? points.first : const LatLng(0, 0));
 
     final myPinColor = myBorderColor ?? Colors.green;
+    final partnerPinColor = partnerBorderColor ?? scheme.primary;
 
     final resolvedTile = tileUrl ?? AppConfig.mapTileUrl;
     final resolvedLabel = labelUrl ?? AppConfig.mapLabelUrl;
@@ -295,7 +298,7 @@ class OrbitMap extends StatelessWidget {
           height: 76,
           child: _AvatarMarker(
             avatarUrl: partnerAvatarUrl,
-            borderColor: scheme.primary,
+            borderColor: partnerPinColor,
             fallbackIcon: Icons.favorite,
             label: partnerLabel,
           ),
@@ -305,7 +308,7 @@ class OrbitMap extends StatelessWidget {
           point: points.last,
           width: 44,
           height: 44,
-          child: Icon(Icons.location_on, color: scheme.primary, size: 40),
+          child: Icon(Icons.location_on, color: partnerPinColor, size: 40),
         ),
       if (myHomePin != null)
         Marker(
@@ -319,7 +322,7 @@ class OrbitMap extends StatelessWidget {
           point: partnerHomePin!,
           width: 40,
           height: 40,
-          child: _HomePinMarker(color: scheme.primary),
+          child: _HomePinMarker(color: partnerPinColor),
         ),
       for (final pin in myPlaces)
         Marker(
@@ -333,7 +336,7 @@ class OrbitMap extends StatelessWidget {
           point: pin.point,
           width: 100,
           height: 52,
-          child: _LabelledPlaceMarker(label: pin.label, color: scheme.primary),
+          child: _LabelledPlaceMarker(label: pin.label, color: partnerPinColor),
         ),
     ];
 
@@ -374,7 +377,7 @@ class OrbitMap extends StatelessWidget {
                 Polyline(
                   points: points,
                   strokeWidth: 4,
-                  color: scheme.primary.withValues(alpha: 0.6),
+                  color: partnerPinColor.withValues(alpha: 0.6),
                 ),
               ]),
             if (todayJourney.length > 1)
@@ -390,7 +393,7 @@ class OrbitMap extends StatelessWidget {
                 Polyline(
                   points: partnerTodayJourney,
                   strokeWidth: 3,
-                  color: scheme.primary.withValues(alpha: 0.75),
+                  color: partnerPinColor.withValues(alpha: 0.75),
                 ),
               ]),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),

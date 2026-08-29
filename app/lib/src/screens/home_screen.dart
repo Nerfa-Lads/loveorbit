@@ -259,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   myAvatarUrl: p.user?.avatarUrl,
                   partnerAvatarUrl: p.partner?.avatarUrl,
                   myBorderColor: p.pinBorderColor,
+                  partnerBorderColor: p.partnerPinBorderColor,
                   myLabel: 'You',
                   partnerLabel: partner?.displayName,
                   tileUrl: p.mapTileUrl,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
@@ -187,6 +188,50 @@ class _DayCard extends StatefulWidget {
 class _DayCardState extends State<_DayCard> {
   bool _expanded = false;
 
+  /// Reverse-geocoded labels keyed by index.
+  /// Populated lazily when the card is expanded.
+  final Map<int, String> _placeNames = {};
+  bool _geocoding = false;
+
+  /// Reverse-geocode a single (lat, lng) into a human-readable string.
+  static Future<String> _geocode(double lat, double lng) async {
+    try {
+      final marks = await placemarkFromCoordinates(lat, lng)
+          .timeout(const Duration(seconds: 8));
+      if (marks.isEmpty) return '';
+      final p = marks.first;
+      final parts = <String>[
+        if ((p.subLocality ?? '').isNotEmpty) p.subLocality!,
+        if ((p.locality ?? '').isNotEmpty) p.locality!,
+        if ((p.subAdministrativeArea ?? '').isNotEmpty &&
+            p.subAdministrativeArea != p.locality)
+          p.subAdministrativeArea!,
+      ].take(2).toList();
+      if (parts.isNotEmpty) return parts.join(', ');
+      final fb = <String>[
+        if ((p.thoroughfare ?? '').isNotEmpty) p.thoroughfare!,
+        if ((p.locality ?? '').isNotEmpty) p.locality!,
+      ];
+      return fb.join(', ');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Geocode all points when the card expands (runs once).
+  Future<void> _loadPlaceNames() async {
+    if (_geocoding || _placeNames.length == widget.points.length) return;
+    _geocoding = true;
+    for (int i = 0; i < widget.points.length; i++) {
+      if (_placeNames.containsKey(i)) continue;
+      final pt = widget.points[i];
+      final name = await _geocode(pt.latitude, pt.longitude);
+      if (!mounted) return;
+      setState(() => _placeNames[i] = name);
+    }
+    _geocoding = false;
+  }
+
   String get _label {
     final parts = widget.dateKey.split('-');
     final date =
@@ -248,7 +293,10 @@ class _DayCardState extends State<_DayCard> {
         children: [
           // ── Header (always visible) ───────────────────────
           InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: () {
+              setState(() => _expanded = !_expanded);
+              if (_expanded) _loadPlaceNames();
+            },
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -345,6 +393,7 @@ class _DayCardState extends State<_DayCard> {
               final pt = widget.points[i];
               final isFirst = i == 0;
               final isLast = i == widget.points.length - 1;
+              final placeName = _placeNames[i];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -378,11 +427,23 @@ class _DayCardState extends State<_DayCard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${pt.latitude.toStringAsFixed(5)}, '
-                              '${pt.longitude.toStringAsFixed(5)}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            // Show place name if geocoded, else a loading shimmer
+                            placeName == null
+                                ? Container(
+                                    height: 12,
+                                    width: 120,
+                                    margin: const EdgeInsets.only(top: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  )
+                                : Text(
+                                    placeName.isNotEmpty
+                                        ? placeName
+                                        : 'Unknown location',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                             Text(
                               _fmtTime(pt.recordedAt),
                               style: TextStyle(

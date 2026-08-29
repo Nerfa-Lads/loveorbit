@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/app_config.dart';
 import '../models/models.dart';
@@ -35,6 +36,7 @@ class SyncService {
     void Function(double lat, double lng)? onPartnerHomePin,
     void Function(List<SavedPlace> places)? onPartnerPlaces,
     void Function(LocationPoint)? onPartnerLocation,
+    void Function(int colorValue)? onPartnerPinColor,
   }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
@@ -63,6 +65,7 @@ class SyncService {
         onPartnerHomePin: onPartnerHomePin,
         onPartnerPlaces: onPartnerPlaces,
         onPartnerLocation: onPartnerLocation,
+        onPartnerPinColor: onPartnerPinColor,
       );
     }
   }
@@ -76,6 +79,7 @@ class SyncService {
     void Function(double lat, double lng)? onPartnerHomePin,
     void Function(List<SavedPlace> places)? onPartnerPlaces,
     void Function(LocationPoint)? onPartnerLocation,
+    void Function(int colorValue)? onPartnerPinColor,
   }) {
     _socket?.dispose();
     _socket = io.io(
@@ -159,6 +163,15 @@ class SyncService {
         onPartnerPlaces?.call(list);
       } catch (_) {}
     });
+
+    // ── Partner pin color ──────────────────────────────────
+    _socket!.on('pin:color', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final value = (d['color'] as num?)?.toInt();
+        if (value != null) onPartnerPinColor?.call(value);
+      } catch (_) {}
+    });
   }
 
   // ── Emitters ──────────────────────────────────────────────
@@ -197,6 +210,11 @@ class SyncService {
       'places:sync',
       places.map((p) => p.toJson()).toList(),
     );
+  }
+
+  /// Broadcast chosen pin border color to partner.
+  void emitPinColor(Color color) {
+    _socket?.emit('pin:color', {'color': color.toARGB32()});
   }
 
   // ── Sync ──────────────────────────────────────────────────

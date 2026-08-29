@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
+import '../providers/app_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loveorbit_app_bar.dart';
 import 'splash_screen.dart' show computeDwellPoints;
@@ -31,8 +33,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() => _loading = true);
     try {
       final api = ApiService();
-      _mine = await api.myLocations();
-      _partner = await api.partnerLocations();
+      // connectedAt = when the couple became active.
+      // - My own history: show everything from connection date onward
+      //   (pre-connection locations were never shared, no point surfacing them).
+      // - Partner history: ONLY from connection date onward — they had no
+      //   obligation to share before you were connected.
+      final connectedAt = context.read<AppProvider>().couple?.connectedAt;
+
+      _mine = await api.myLocations(from: connectedAt);
+      _partner = await api.partnerLocations(from: connectedAt);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -60,6 +69,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final days = _byDay;
+    final p = context.watch<AppProvider>();
+    final connectedAt = p.couple?.connectedAt;
 
     return Scaffold(
       appBar: LoveOrbitAppBar(
@@ -79,7 +90,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             // ── Mine / Partner toggle ──────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
               child: SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(
@@ -95,6 +106,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 onSelectionChanged: (s) => setState(() => _showMine = s.first),
               ),
             ),
+            // ── Connection date note ───────────────────────────
+            if (connectedAt != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.link, size: 13, color: Colors.grey.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Showing journeys from ${_fmtDate(connectedAt)} — when you connected',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
 
             // ── Content ────────────────────────────────────────
             Expanded(
@@ -130,8 +157,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               dateKey: key,
                               points: pts,
                               color: _showMine
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.pinkAccent,
+                                  ? p.pinBorderColor
+                                  : p.partnerPinBorderColor,
                             );
                           },
                         ),
@@ -140,6 +167,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ),
     );
+  }
+
+  static String _fmtDate(DateTime d) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
   void _confirmDelete() {

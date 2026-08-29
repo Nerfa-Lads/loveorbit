@@ -30,6 +30,8 @@ class Couple {
   final bool creatorAccepted;
   final bool partnerAccepted;
   final String status; // pending | active | disconnected
+  /// When the couple became active (partner joined). Null for pending couples.
+  final DateTime? connectedAt;
 
   Couple({
     required this.id,
@@ -39,6 +41,7 @@ class Couple {
     required this.creatorAccepted,
     required this.partnerAccepted,
     required this.status,
+    this.connectedAt,
   });
 
   factory Couple.fromJson(Map<String, dynamic> j) => Couple(
@@ -49,6 +52,9 @@ class Couple {
         creatorAccepted: j['creator_accepted'] as bool? ?? false,
         partnerAccepted: j['partner_accepted'] as bool? ?? false,
         status: j['status'] as String? ?? 'pending',
+        connectedAt: j['connected_at'] != null
+            ? DateTime.parse(j['connected_at'] as String).toLocal()
+            : null,
       );
 }
 

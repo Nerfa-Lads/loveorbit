@@ -65,7 +65,8 @@ router.get('/me', auth, async (req, res) => {
       const p = await query('SELECT id, display_name, avatar_url FROM users WHERE id = $1', [partnerId]);
       partner = p.rows[0] || null;
     }
-    res.json({ couple, partner });
+    // connected_at = when the couple became active (partner joined)
+    res.json({ couple: { ...couple, connected_at: couple.updated_at }, partner });
   } catch (e) {
     console.error('couples me', e);
     res.status(500).json({ error: 'server_error' });

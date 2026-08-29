@@ -173,6 +173,51 @@ class _HomePinMarker extends StatelessWidget {
 // ── Named pin data holder ─────────────────────────────────────
 typedef NamedPin = ({LatLng point, String label});
 
+// ── Dwell point ───────────────────────────────────────────────
+/// A location where the user lingered for [duration] (≥ 1 h).
+typedef DwellPoint = ({LatLng point, Duration duration});
+
+/// Scan a sorted list of GPS points and return clusters where the user
+/// stayed within [radiusMeters] for at least [minDwell].
+/// Each returned [DwellPoint] uses the centroid of the cluster.
+List<DwellPoint> computeDwellPoints(
+  List<({LatLng point, DateTime time})> pts, {
+  double radiusMeters = 100,
+  Duration minDwell = const Duration(hours: 1),
+}) {
+  if (pts.length < 2) return [];
+  const dist = Distance();
+  final result = <DwellPoint>[];
+
+  int i = 0;
+  while (i < pts.length) {
+    // Accumulate points that stay within radiusMeters of pts[i]
+    final anchor = pts[i].point;
+    int j = i + 1;
+    while (j < pts.length && dist(anchor, pts[j].point) <= radiusMeters) {
+      j++;
+    }
+    // pts[i..j-1] are all within radius of anchor
+    final elapsed = pts[j - 1].time.difference(pts[i].time);
+    if (elapsed >= minDwell) {
+      // Compute centroid
+      double lat = 0, lng = 0;
+      for (int k = i; k < j; k++) {
+        lat += pts[k].point.latitude;
+        lng += pts[k].point.longitude;
+      }
+      final n = j - i;
+      result.add((
+        point: LatLng(lat / n, lng / n),
+        duration: elapsed,
+      ));
+    }
+    // Advance past the cluster (or just one step if no cluster)
+    i = j > i + 1 ? j : i + 1;
+  }
+  return result;
+}
+
 // ── Labelled place marker ─────────────────────────────────────
 class _LabelledPlaceMarker extends StatelessWidget {
   final String label;
@@ -215,6 +260,64 @@ class _LabelledPlaceMarker extends StatelessWidget {
   }
 }
 
+// ── Dwell marker (circle on the trail) ───────────────────────
+class _DwellMarker extends StatelessWidget {
+  final Color color;
+  final Duration duration;
+
+  const _DwellMarker({required this.color, required this.duration});
+
+  String get _label {
+    final h = duration.inHours;
+    final m = duration.inMinutes % 60;
+    if (h > 0 && m > 0) return '${h}h ${m}m';
+    if (h > 0) return '${h}h';
+    return '${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Duration badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
+            ],
+          ),
+          child: Text(
+            _label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        // Circle dot
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            border: Border.all(color: color, width: 2.5),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 4),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Reusable map widget ───────────────────────────────────────
 class OrbitMap extends StatelessWidget {
   final List<LatLng> points;
@@ -235,6 +338,8 @@ class OrbitMap extends StatelessWidget {
   final List<LatLng> todayJourney;
   final List<LatLng> partnerTodayJourney;
   final Color? partnerBorderColor;
+  final List<DwellPoint> myDwellPoints;
+  final List<DwellPoint> partnerDwellPoints;
 
   /// Override tile URLs (pass from AppProvider for user-chosen style).
   /// Falls back to AppConfig satellite tiles if null.
@@ -261,6 +366,8 @@ class OrbitMap extends StatelessWidget {
     this.partnerPlaces = const [],
     this.todayJourney = const [],
     this.partnerTodayJourney = const [],
+    this.myDwellPoints = const [],
+    this.partnerDwellPoints = const [],
     this.tileUrl,
     this.labelUrl,
   });
@@ -396,6 +503,33 @@ class OrbitMap extends StatelessWidget {
                   color: partnerPinColor.withValues(alpha: 0.75),
                 ),
               ]),
+            // ── Dwell markers ─────────────────────────────
+            if (myDwellPoints.isNotEmpty)
+              MarkerLayer(
+                markers: [
+                  for (final dw in myDwellPoints)
+                    Marker(
+                      point: dw.point,
+                      width: 52,
+                      height: 36,
+                      child: _DwellMarker(
+                          color: myPinColor, duration: dw.duration),
+                    ),
+                ],
+              ),
+            if (partnerDwellPoints.isNotEmpty)
+              MarkerLayer(
+                markers: [
+                  for (final dw in partnerDwellPoints)
+                    Marker(
+                      point: dw.point,
+                      width: 52,
+                      height: 36,
+                      child: _DwellMarker(
+                          color: partnerPinColor, duration: dw.duration),
+                    ),
+                ],
+              ),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),
           ],
         ),

@@ -6,6 +6,7 @@ import '../config/app_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/loveorbit_app_bar.dart';
+import 'splash_screen.dart' show computeDwellPoints;
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -283,8 +284,6 @@ class _DayCardState extends State<_DayCard> {
 
   @override
   Widget build(BuildContext context) {
-    final pts =
-        widget.points.map((p) => LatLng(p.latitude, p.longitude)).toList();
     final km = _distanceKm;
 
     return Card(
@@ -357,7 +356,7 @@ class _DayCardState extends State<_DayCard> {
             // Route map
             SizedBox(
               height: 220,
-              child: _RouteMap(points: pts, color: widget.color),
+              child: _RouteMap(points: widget.points, color: widget.color),
             ),
             // Stats row
             Padding(
@@ -479,21 +478,34 @@ class _DayCardState extends State<_DayCard> {
 
 // ── Map widget ────────────────────────────────────────────────
 class _RouteMap extends StatelessWidget {
-  final List<LatLng> points;
+  final List<LocationPoint> points;
   final Color color;
 
   const _RouteMap({required this.points, required this.color});
 
+  List<LatLng> get _latLngs =>
+      points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+
   LatLng get _center {
-    final lat =
-        points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
+    final lls = _latLngs;
+    final lat = lls.map((p) => p.latitude).reduce((a, b) => a + b) / lls.length;
     final lng =
-        points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
+        lls.map((p) => p.longitude).reduce((a, b) => a + b) / lls.length;
     return LatLng(lat, lng);
   }
 
   @override
   Widget build(BuildContext context) {
+    final lls = _latLngs;
+    final dwells = computeDwellPoints(
+      points
+          .map((pt) => (
+                point: LatLng(pt.latitude, pt.longitude),
+                time: pt.recordedAt,
+              ))
+          .toList(),
+    );
+
     return FlutterMap(
       options: MapOptions(initialCenter: _center, initialZoom: 13),
       children: [
@@ -505,7 +517,6 @@ class _RouteMap extends StatelessWidget {
             },
           ),
         ),
-        // Road labels on top of base layer (only when URL is set)
         if (AppConfig.mapLabelUrl.isNotEmpty)
           TileLayer(
             urlTemplate: AppConfig.mapLabelUrl,
@@ -517,24 +528,92 @@ class _RouteMap extends StatelessWidget {
           ),
         PolylineLayer(polylines: [
           Polyline(
-              points: points,
+              points: lls,
               strokeWidth: 4,
               color: color.withValues(alpha: 0.85)),
         ]),
+        // Dwell markers
+        if (dwells.isNotEmpty)
+          MarkerLayer(
+            markers: [
+              for (final dw in dwells)
+                Marker(
+                  point: dw.point,
+                  width: 52,
+                  height: 36,
+                  child: _DwellBadge(color: color, duration: dw.duration),
+                ),
+            ],
+          ),
         MarkerLayer(markers: [
           Marker(
-            point: points.first,
+            point: lls.first,
             width: 32,
             height: 32,
             child: const Icon(Icons.trip_origin, color: Colors.green, size: 26),
           ),
           Marker(
-            point: points.last,
+            point: lls.last,
             width: 36,
             height: 36,
             child: Icon(Icons.location_on, color: color, size: 32),
           ),
         ]),
+      ],
+    );
+  }
+}
+
+// ── Dwell badge for history map (same visual as _DwellMarker) ─
+class _DwellBadge extends StatelessWidget {
+  final Color color;
+  final Duration duration;
+  const _DwellBadge({required this.color, required this.duration});
+
+  String get _label {
+    final h = duration.inHours;
+    final m = duration.inMinutes % 60;
+    if (h > 0 && m > 0) return '${h}h ${m}m';
+    if (h > 0) return '${h}h';
+    return '${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
+            ],
+          ),
+          child: Text(
+            _label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            border: Border.all(color: color, width: 2.5),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 4),
+            ],
+          ),
+        ),
       ],
     );
   }

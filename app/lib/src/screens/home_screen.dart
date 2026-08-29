@@ -10,7 +10,7 @@ import '../widgets/avatar_image.dart';
 import '../widgets/loveorbit_app_bar.dart';
 import 'home_pin_picker_screen.dart';
 import 'places_screen.dart';
-import 'splash_screen.dart' show OrbitMap;
+import 'splash_screen.dart' show OrbitMap, computeDwellPoints;
 
 // ── Reverse geocode using native platform geocoder ────────────
 // Android uses Google's geocoding service — accurate for PH barangays.
@@ -286,6 +286,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   partnerTodayJourney: p.partnerTodayJourney
                       .map((pt) => LatLng(pt.latitude, pt.longitude))
                       .toList(),
+                  myDwellPoints: computeDwellPoints(
+                    p.todayJourney
+                        .map((pt) => (
+                              point: LatLng(pt.latitude, pt.longitude),
+                              time: pt.recordedAt,
+                            ))
+                        .toList(),
+                  ),
+                  partnerDwellPoints: computeDwellPoints(
+                    p.partnerTodayJourney
+                        .map((pt) => (
+                              point: LatLng(pt.latitude, pt.longitude),
+                              time: pt.recordedAt,
+                            ))
+                        .toList(),
+                  ),
                 ),
               ),
 

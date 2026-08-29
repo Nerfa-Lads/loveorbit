@@ -479,14 +479,6 @@ class OrbitMap extends StatelessWidget {
                   },
                 ),
               ),
-            if (points.length > 1)
-              PolylineLayer(polylines: [
-                Polyline(
-                  points: points,
-                  strokeWidth: 4,
-                  color: partnerPinColor.withValues(alpha: 0.6),
-                ),
-              ]),
             if (todayJourney.length > 1)
               PolylineLayer(polylines: [
                 Polyline(

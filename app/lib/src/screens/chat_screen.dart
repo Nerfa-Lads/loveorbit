@@ -120,11 +120,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendVoiceFile(String path) async {
+    // Read provider and check state before any async gap
+    final p = context.read<AppProvider>();
+    if (p.partner == null || p.user == null) return;
     try {
       final api = ApiService();
       final media = await api.uploadMedia(path);
-      final p = context.read<AppProvider>();
-      if (p.partner == null || p.user == null) return;
+      if (!mounted) return;
       final m = ChatMessage(
         senderId: p.user!.id,
         receiverId: p.partner!.id,

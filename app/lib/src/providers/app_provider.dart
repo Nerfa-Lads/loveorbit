@@ -113,6 +113,11 @@ class AppProvider extends ChangeNotifier {
 
   StreamSubscription<BatteryState>? _batteryStateSub;
 
+  // ── Phone active state ────────────────────────────────────
+  /// Whether partner's app is currently in the foreground.
+  /// null = unknown (never received a status yet).
+  bool? partnerPhoneActive;
+
   // ── Geofence ──────────────────────────────────────────────
   /// Tracks which place labels the user was already inside,
   /// so we don't re-fire the same notification on every tick.
@@ -167,12 +172,14 @@ class AppProvider extends ChangeNotifier {
         onPartnerPlaces: _onPartnerPlaces,
         onPartnerLocation: addPartnerJourneyPoint,
         onPartnerPinColor: _onPartnerPinColor,
+        onPartnerPhoneActive: _onPartnerPhoneActive,
       );
       _listenSync();
       await _initBattery();
       _startJourneyTracking();
-      // Share our pin color with partner on connect
+      // Share our pin color and active state on connect
       SyncService.instance.emitPinColor(_pinBorderColor);
+      SyncService.instance.emitPhoneActive(true);
       notifyListeners();
     } catch (e) {
       final msg = e.toString();
@@ -307,6 +314,16 @@ class AppProvider extends ChangeNotifier {
 
   void _onPartnerPinColor(int colorValue) {
     partnerPinBorderColor = Color(colorValue);
+    notifyListeners();
+  }
+
+  /// Called by main.dart when the app lifecycle changes.
+  void setPhoneActive(bool active) {
+    SyncService.instance.emitPhoneActive(active);
+  }
+
+  void _onPartnerPhoneActive(bool active) {
+    partnerPhoneActive = active;
     notifyListeners();
   }
 
@@ -543,11 +560,13 @@ class AppProvider extends ChangeNotifier {
       onPartnerPlaces: _onPartnerPlaces,
       onPartnerLocation: addPartnerJourneyPoint,
       onPartnerPinColor: _onPartnerPinColor,
+      onPartnerPhoneActive: _onPartnerPhoneActive,
     );
     _listenSync();
     await _initBattery();
     _startJourneyTracking();
     SyncService.instance.emitPinColor(_pinBorderColor);
+    SyncService.instance.emitPhoneActive(true);
     notifyListeners();
   }
 
@@ -567,11 +586,13 @@ class AppProvider extends ChangeNotifier {
       onPartnerPlaces: _onPartnerPlaces,
       onPartnerLocation: addPartnerJourneyPoint,
       onPartnerPinColor: _onPartnerPinColor,
+      onPartnerPhoneActive: _onPartnerPhoneActive,
     );
     _listenSync();
     await _initBattery();
     _startJourneyTracking();
     SyncService.instance.emitPinColor(_pinBorderColor);
+    SyncService.instance.emitPhoneActive(true);
     notifyListeners();
   }
 
@@ -598,6 +619,7 @@ class AppProvider extends ChangeNotifier {
     partnerPlaces = [];
     todayJourney.clear();
     partnerTodayJourney.clear();
+    partnerPhoneActive = null;
     notifyListeners();
   }
 

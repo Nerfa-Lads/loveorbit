@@ -37,6 +37,7 @@ class SyncService {
     void Function(List<SavedPlace> places)? onPartnerPlaces,
     void Function(LocationPoint)? onPartnerLocation,
     void Function(int colorValue)? onPartnerPinColor,
+    void Function(bool active)? onPartnerPhoneActive,
   }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
@@ -66,6 +67,7 @@ class SyncService {
         onPartnerPlaces: onPartnerPlaces,
         onPartnerLocation: onPartnerLocation,
         onPartnerPinColor: onPartnerPinColor,
+        onPartnerPhoneActive: onPartnerPhoneActive,
       );
     }
   }
@@ -80,6 +82,7 @@ class SyncService {
     void Function(List<SavedPlace> places)? onPartnerPlaces,
     void Function(LocationPoint)? onPartnerLocation,
     void Function(int colorValue)? onPartnerPinColor,
+    void Function(bool active)? onPartnerPhoneActive,
   }) {
     _socket?.dispose();
     _socket = io.io(
@@ -172,6 +175,15 @@ class SyncService {
         if (value != null) onPartnerPinColor?.call(value);
       } catch (_) {}
     });
+
+    // ── Partner phone active state ─────────────────────────
+    _socket!.on('phone:active', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final active = d['active'] as bool? ?? false;
+        onPartnerPhoneActive?.call(active);
+      } catch (_) {}
+    });
   }
 
   // ── Emitters ──────────────────────────────────────────────
@@ -215,6 +227,11 @@ class SyncService {
   /// Broadcast chosen pin border color to partner.
   void emitPinColor(Color color) {
     _socket?.emit('pin:color', {'color': color.toARGB32()});
+  }
+
+  /// Broadcast whether the app is in the foreground (phone is active/in-use).
+  void emitPhoneActive(bool active) {
+    _socket?.emit('phone:active', {'active': active});
   }
 
   // ── Sync ──────────────────────────────────────────────────

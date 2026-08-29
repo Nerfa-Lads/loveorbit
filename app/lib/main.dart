@@ -13,14 +13,38 @@ void main() async {
   runApp(LoveOrbitApp(provider: provider));
 }
 
-class LoveOrbitApp extends StatelessWidget {
+class LoveOrbitApp extends StatefulWidget {
   final AppProvider provider;
   const LoveOrbitApp({super.key, required this.provider});
 
   @override
+  State<LoveOrbitApp> createState() => _LoveOrbitAppState();
+}
+
+class _LoveOrbitAppState extends State<LoveOrbitApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    widget.provider.setPhoneActive(active);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-      value: provider,
+      value: widget.provider,
       child: Consumer<AppProvider>(
         builder: (context, p, _) {
           return MaterialApp(

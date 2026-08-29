@@ -354,6 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isHome: p.amIHome,
                         battery: p.myBattery,
                         batteryState: BatteryState.unknown,
+                        phoneActive: true,
                       ),
                     ),
                   if (_myLocation != null && partnerPt != null)
@@ -369,6 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isHome: p.partnerIsHome,
                         battery: p.partnerBattery,
                         batteryState: p.partnerBatteryState,
+                        phoneActive: p.partnerPhoneActive,
                       ),
                     ),
                 ],
@@ -427,6 +429,9 @@ class _LocationCard extends StatelessWidget {
   final int battery;
   final BatteryState batteryState;
 
+  /// null = unknown, true = phone active/in use, false = screen off/idle
+  final bool? phoneActive;
+
   const _LocationCard({
     required this.label,
     required this.avatarUrl,
@@ -436,6 +441,7 @@ class _LocationCard extends StatelessWidget {
     required this.isHome,
     required this.battery,
     required this.batteryState,
+    this.phoneActive,
   });
 
   String _ago(DateTime t) {
@@ -473,8 +479,14 @@ class _LocationCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Phone active status
+              if (phoneActive != null) ...[
+                const SizedBox(width: 4),
+                _PhoneStatusBadge(active: phoneActive!),
+              ],
               // At-home badge
-              if (isHome)
+              if (isHome) ...[
+                const SizedBox(width: 4),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -495,6 +507,7 @@ class _LocationCard extends StatelessWidget {
                     ],
                   ),
                 ),
+              ],
             ]),
             const SizedBox(height: 8),
 
@@ -542,6 +555,50 @@ class _LocationCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Phone status badge ────────────────────────────────────────
+class _PhoneStatusBadge extends StatelessWidget {
+  final bool active;
+  const _PhoneStatusBadge({required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: active
+            ? Colors.green.withValues(alpha: 0.12)
+            : Colors.grey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: active
+              ? Colors.green.withValues(alpha: 0.4)
+              : Colors.grey.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.smartphone,
+            size: 11,
+            color: active ? Colors.green : Colors.grey.shade500,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            active ? '' : 'zzz',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: active ? Colors.green : Colors.grey.shade500,
+            ),
+          ),
+        ],
       ),
     );
   }

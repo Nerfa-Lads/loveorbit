@@ -383,8 +383,10 @@ class AppProvider extends ChangeNotifier {
   // ── Today's journey ───────────────────────────────────────
   void _startJourneyTracking() {
     _journeySub?.cancel();
-    // Seed with today's points already in SQLite pending queue
+    // Seed today's own trail from pending queue + server
     _seedTodayJourney();
+    // Seed partner's today trail from server
+    _seedPartnerTodayJourney();
     // Then listen live to the GPS stream
     _journeySub = LocationService.instance.stream.listen((pt) {
       final now = DateTime.now();
@@ -403,13 +405,32 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> _seedTodayJourney() async {
-    final all = await LocalStore.pendingLocations();
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day);
-    final today = all.where((p) => p.recordedAt.isAfter(midnight)).toList()
+
+    // 1. Seed from local pending queue (offline points not yet uploaded)
+    final pending = await LocalStore.pendingLocations();
+    final todayPending =
+        pending.where((p) => p.recordedAt.isAfter(midnight)).toList();
+
+    // 2. Also fetch today's confirmed points from the server
+    List<LocationPoint> serverPoints = [];
+    try {
+      serverPoints = await _api.myLocations(from: midnight);
+    } catch (_) {}
+
+    // Merge both lists, deduplicate by clientUid, sort oldest→newest
+    final merged = <String, LocationPoint>{};
+    for (final p in [...serverPoints, ...todayPending]) {
+      merged[p.clientUid.isNotEmpty
+          ? p.clientUid
+          : (p.id ?? p.recordedAt.toIso8601String())] = p;
+    }
+    final sorted = merged.values.toList()
       ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-    if (today.isNotEmpty) {
-      todayJourney.addAll(today);
+
+    if (sorted.isNotEmpty) {
+      todayJourney.addAll(sorted);
       notifyListeners();
     }
   }
@@ -496,6 +517,21 @@ class AppProvider extends ChangeNotifier {
       partnerTodayJourney.add(pt);
       notifyListeners();
     }
+  }
+
+  /// Seed partner's today trail from server on startup.
+  Future<void> _seedPartnerTodayJourney() async {
+    if (!isConnected) return;
+    final midnight = DateTime.now();
+    final start = DateTime(midnight.year, midnight.month, midnight.day);
+    try {
+      final pts = await _api.partnerLocations(from: start);
+      if (pts.isNotEmpty) {
+        pts.sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+        partnerTodayJourney.addAll(pts);
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   /// Returns the label of the nearest saved place within [radiusMeters],

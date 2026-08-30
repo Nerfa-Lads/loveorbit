@@ -81,6 +81,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   LocationPoint? _myLocation;
+  LatLng? _stableCenter; // only updated when user has moved significantly
   bool _locLoading = false;
   String _myPlaceName = '';
   String _partnerPlaceName = '';
@@ -99,14 +100,26 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _locLoading = true);
     final pt = await LocationService.instance.currentPoint();
     if (!mounted) return;
-    setState(() {
-      _myLocation = pt;
-      _locLoading = false;
-    });
     if (pt != null) {
+      final newLl = LatLng(pt.latitude, pt.longitude);
+      // Only update stable center if we don't have one yet, or user moved >50m
+      if (_stableCenter == null) {
+        _stableCenter = newLl;
+      } else {
+        const calc = Distance();
+        final moved = calc(_stableCenter!, newLl);
+        if (moved > 50) _stableCenter = newLl;
+      }
+      setState(() {
+        _myLocation = pt;
+        _locLoading = false;
+        _myPlaceName = '';
+      });
       context.read<AppProvider>().setMyCurrentLoc(pt.latitude, pt.longitude);
       final name = await _placeName(pt.latitude, pt.longitude);
       if (mounted) setState(() => _myPlaceName = name);
+    } else {
+      setState(() => _locLoading = false);
     }
   }
 
@@ -132,9 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (partnerPt != null) LatLng(partnerPt.latitude, partnerPt.longitude),
     ];
 
-    final LatLng? mapCenter = _myLocation != null
-        ? LatLng(_myLocation!.latitude, _myLocation!.longitude)
-        : null;
+    final LatLng? mapCenter = _stableCenter ??
+        (_myLocation != null
+            ? LatLng(_myLocation!.latitude, _myLocation!.longitude)
+            : null);
 
     final String? distanceStr = (_myLocation != null && partnerPt != null)
         ? _distanceLabel(_myLocation!.latitude, _myLocation!.longitude,

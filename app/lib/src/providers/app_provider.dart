@@ -191,9 +191,15 @@ class AppProvider extends ChangeNotifier {
       _listenSync();
       await _initBattery();
       _startJourneyTracking();
-      // Share our pin color and active state on connect
+      // Share our pin color, active state, home pin, and places on connect
       SyncService.instance.emitPinColor(_pinBorderColor);
       SyncService.instance.emitPhoneActive(true);
+      if (homeLat != null && homeLng != null) {
+        SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
+      }
+      if (savedPlaces.isNotEmpty) {
+        SyncService.instance.emitPlaces(savedPlaces);
+      }
       notifyListeners();
     } catch (e) {
       final msg = e.toString();
@@ -376,6 +382,13 @@ class AppProvider extends ChangeNotifier {
         level: myBattery,
         state: _batteryStateString(state),
       );
+    }
+    // Re-share home pin and saved places so partner always sees them
+    if (homeLat != null && homeLng != null) {
+      SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
+    }
+    if (savedPlaces.isNotEmpty) {
+      SyncService.instance.emitPlaces(savedPlaces);
     }
     // Also refresh partner's today trail in case we missed socket events
     _seedPartnerTodayJourney();
@@ -702,6 +715,12 @@ class AppProvider extends ChangeNotifier {
     _startJourneyTracking();
     SyncService.instance.emitPinColor(_pinBorderColor);
     SyncService.instance.emitPhoneActive(true);
+    if (homeLat != null && homeLng != null) {
+      SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
+    }
+    if (savedPlaces.isNotEmpty) {
+      SyncService.instance.emitPlaces(savedPlaces);
+    }
     notifyListeners();
   }
 
@@ -731,6 +750,12 @@ class AppProvider extends ChangeNotifier {
     _startJourneyTracking();
     SyncService.instance.emitPinColor(_pinBorderColor);
     SyncService.instance.emitPhoneActive(true);
+    if (homeLat != null && homeLng != null) {
+      SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
+    }
+    if (savedPlaces.isNotEmpty) {
+      SyncService.instance.emitPlaces(savedPlaces);
+    }
     notifyListeners();
   }
 

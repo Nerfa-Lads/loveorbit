@@ -36,40 +36,66 @@ export function attachSockets(httpServer) {
     if (coupleId) socket.join(`couple:${coupleId}`);
     await query('UPDATE sharing_state SET updated_at = now() WHERE user_id = $1', [userId]).catch(() => {});
 
-    socket.on('location:update', async (data) => {
+    // ── Helper: forward event to partner only (not sender) ──
+    const toPartner = (event, data) => {
       if (!coupleId) return;
-      io.to(`couple:${coupleId}`).emit('location:update', { user_id: userId, ...data });
-    });
+      socket.to(`couple:${coupleId}`).emit(event, { user_id: userId, ...data });
+    };
 
-    socket.on('message:send', async (data) => {
+    socket.on('location:update', (data) => toPartner('location:update', data));
+    socket.on('sharing:toggle', (data) => toPartner('sharing:toggle', data));
+    socket.on('typing', () => toPartner('typing', {}));
+
+    // ── Chat messages ──────────────────────────────────────
+    socket.on('message:send', (data) => {
       if (!coupleId) return;
-      io.to(`couple:${coupleId}`).emit('message:new', { ...data, sender_id: userId });
+      socket.to(`couple:${coupleId}`).emit('message:new', {
+        ...data,
+        sender_id: userId,
+      });
     });
 
-    socket.on('message:status', async (data) => {
-      if (!coupleId) return;
-      io.to(`couple:${coupleId}`).emit('message:status', { ...data, by: userId });
-    });
+    socket.on('message:status', (data) => toPartner('message:status', data));
 
-    socket.on('sharing:toggle', async (data) => {
-      if (!coupleId) return;
-      io.to(`couple:${coupleId}`).emit('sharing:toggle', { user_id: userId, ...data });
-    });
-
-    socket.on('typing', () => {
-      if (coupleId) socket.to(`couple:${coupleId}`).emit('typing', { user_id: userId });
-    });
-
-    // Emitted by a user when they arrive home
+    // ── Home arrived ───────────────────────────────────────
     socket.on('home:arrived', async (data) => {
       if (!coupleId) return;
-      // Look up display name to send to partner
       const { rows: userRows } = await query('SELECT display_name FROM users WHERE id = $1', [userId]);
       const name = userRows[0]?.display_name || 'Your partner';
-      // Notify the partner only (not the sender)
       socket.to(`couple:${coupleId}`).emit('home:arrived', {
         user_id: userId,
         display_name: name,
+        timestamp: data?.timestamp || new Date().toISOString(),
+      });
+    });
+
+    // ── Home pin ───────────────────────────────────────────
+    socket.on('home:pin', (data) => toPartner('home:pin', data));
+
+    // ── Battery ────────────────────────────────────────────
+    socket.on('battery:update', (data) => toPartner('battery:update', data));
+
+    // ── Phone active state ─────────────────────────────────
+    socket.on('phone:active', (data) => toPartner('phone:active', data));
+
+    // ── Pin color ──────────────────────────────────────────
+    socket.on('pin:color', (data) => toPartner('pin:color', data));
+
+    // ── Saved places ───────────────────────────────────────
+    socket.on('places:sync', (data) => toPartner('places:sync', data));
+
+    // ── Movement mode ──────────────────────────────────────
+    socket.on('movement:update', (data) => toPartner('movement:update', data));
+
+    // ── Place arrived notification ─────────────────────────
+    socket.on('place:arrived', async (data) => {
+      if (!coupleId) return;
+      const { rows: userRows } = await query('SELECT display_name FROM users WHERE id = $1', [userId]);
+      const name = userRows[0]?.display_name || 'Your partner';
+      socket.to(`couple:${coupleId}`).emit('place:arrived', {
+        user_id: userId,
+        display_name: name,
+        label: data?.label || '',
         timestamp: data?.timestamp || new Date().toISOString(),
       });
     });

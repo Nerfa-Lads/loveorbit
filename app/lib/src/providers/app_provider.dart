@@ -451,7 +451,11 @@ class AppProvider extends ChangeNotifier {
     List<LocationPoint> serverPoints = [];
     try {
       serverPoints = await _api.myLocations(from: midnight);
-    } catch (_) {}
+      debugPrint(
+          '[Trail] Server returned ${serverPoints.length} points for today');
+    } catch (e) {
+      debugPrint('[Trail] Server fetch failed: $e');
+    }
 
     // Merge both lists, deduplicate by clientUid or id, sort oldest→newest
     final merged = <String, LocationPoint>{};
@@ -469,8 +473,12 @@ class AppProvider extends ChangeNotifier {
       ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
 
     if (sorted.isNotEmpty) {
+      debugPrint('[Trail] Seeding ${sorted.length} points into todayJourney');
       todayJourney.addAll(sorted);
       notifyListeners();
+    } else {
+      debugPrint(
+          '[Trail] No points to seed — pending: ${todayPending.length}, server: ${serverPoints.length}');
     }
   }
 

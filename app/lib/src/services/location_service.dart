@@ -26,7 +26,8 @@ class LocationService {
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
       return false;
     }
     return true;
@@ -40,7 +41,7 @@ class LocationService {
     _sub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 20, // meters
+        distanceFilter: 5, // metres — more responsive trail
       ),
     ).listen(_onPosition);
   }

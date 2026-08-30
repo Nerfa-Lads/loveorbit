@@ -487,12 +487,42 @@ class OrbitMap extends StatelessWidget {
                   color: myPinColor.withValues(alpha: 0.75),
                 ),
               ]),
+            if (todayJourney.length == 1)
+              MarkerLayer(markers: [
+                Marker(
+                  point: todayJourney.first,
+                  width: 14,
+                  height: 14,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: myPinColor.withValues(alpha: 0.75),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ]),
             if (partnerTodayJourney.length > 1)
               PolylineLayer(polylines: [
                 Polyline(
                   points: partnerTodayJourney,
                   strokeWidth: 3,
                   color: partnerPinColor.withValues(alpha: 0.75),
+                ),
+              ]),
+            if (partnerTodayJourney.length == 1)
+              MarkerLayer(markers: [
+                Marker(
+                  point: partnerTodayJourney.first,
+                  width: 14,
+                  height: 14,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: partnerPinColor.withValues(alpha: 0.75),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
                 ),
               ]),
             // ── Dwell markers ─────────────────────────────

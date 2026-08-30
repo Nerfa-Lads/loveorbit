@@ -30,6 +30,7 @@ class SyncService {
 
   void init({
     String? token,
+    void Function()? onReconnect,
     void Function(ChatMessage)? onIncomingMessage,
     void Function(int level, String state)? onPartnerBattery,
     void Function(bool isHome)? onPartnerIsHome,
@@ -63,6 +64,7 @@ class SyncService {
       connectSocket(
         token,
         onIncomingMessage,
+        onReconnect: onReconnect,
         onPartnerBattery: onPartnerBattery,
         onPartnerIsHome: onPartnerIsHome,
         onPartnerHomePin: onPartnerHomePin,
@@ -79,6 +81,7 @@ class SyncService {
   void connectSocket(
     String token,
     void Function(ChatMessage)? onIncomingMessage, {
+    void Function()? onReconnect,
     void Function(String displayName)? onPartnerArrived,
     void Function(int level, String state)? onPartnerBattery,
     void Function(bool isHome)? onPartnerIsHome,
@@ -99,6 +102,11 @@ class SyncService {
             .enableReconnection()
             .build());
     _socket!.connect();
+
+    // ── On connect / reconnect — re-broadcast our status ──
+    _socket!.onConnect((_) {
+      onReconnect?.call();
+    });
 
     // ── Incoming chat message ──────────────────────────────
     _socket!.on('message:new', (data) {

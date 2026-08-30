@@ -103,6 +103,7 @@ class AppProvider extends ChangeNotifier {
 
   // ── Midnight reset ────────────────────────────────────────
   Timer? _midnightTimer;
+  Timer? _partnerTrailRefreshTimer;
 
   // ── Battery ───────────────────────────────────────────────
   /// My own battery level (0–100). -1 = unknown.
@@ -175,6 +176,7 @@ class AppProvider extends ChangeNotifier {
       messages = await LocalStore.cachedMessages();
       SyncService.instance.init(
         token: tok,
+        onReconnect: _onSocketReconnect,
         onIncomingMessage: _onIncoming,
         onPartnerBattery: _onPartnerBattery,
         onPartnerIsHome: _onPartnerIsHome,
@@ -364,6 +366,21 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Called when socket reconnects — re-broadcast all our status to partner.
+  Future<void> _onSocketReconnect() async {
+    SyncService.instance.emitPinColor(_pinBorderColor);
+    SyncService.instance.emitPhoneActive(true);
+    if (myBattery >= 0) {
+      final state = await _battery.batteryState;
+      SyncService.instance.emitBattery(
+        level: myBattery,
+        state: _batteryStateString(state),
+      );
+    }
+    // Also refresh partner's today trail in case we missed socket events
+    _seedPartnerTodayJourney();
+  }
+
   // ── Saved places ──────────────────────────────────────────
   Future<void> _loadSavedPlaces() async {
     final prefs = await SharedPreferences.getInstance();
@@ -436,6 +453,12 @@ class AppProvider extends ChangeNotifier {
     _startGeofenceTimer();
     // Schedule trail reset at next midnight
     _scheduleMidnightReset();
+    // Periodically refresh partner's trail from server
+    _partnerTrailRefreshTimer?.cancel();
+    _partnerTrailRefreshTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => _seedPartnerTodayJourney(),
+    );
   }
 
   Future<void> _seedTodayJourney() async {
@@ -566,16 +589,32 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Seed partner's today trail from server on startup.
+  /// Seed partner's today trail from server on startup and periodic refresh.
   Future<void> _seedPartnerTodayJourney() async {
     if (!isConnected) return;
-    final midnight = DateTime.now();
-    final start = DateTime(midnight.year, midnight.month, midnight.day);
+    final start = DateTime.now();
+    final midnight = DateTime(start.year, start.month, start.day);
     try {
-      final pts = await _api.partnerLocations(from: start);
-      if (pts.isNotEmpty) {
-        pts.sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-        partnerTodayJourney.addAll(pts);
+      final pts = await _api.partnerLocations(from: midnight);
+      if (pts.isEmpty) return;
+      pts.sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+      // Merge with existing points — avoid duplicates by clientUid/id
+      final existing = <String>{};
+      for (final p in partnerTodayJourney) {
+        existing.add(p.clientUid.isNotEmpty
+            ? p.clientUid
+            : (p.id ?? p.recordedAt.toIso8601String()));
+      }
+      final newPts = pts.where((p) {
+        final key = p.clientUid.isNotEmpty
+            ? p.clientUid
+            : (p.id ?? p.recordedAt.toIso8601String());
+        return !existing.contains(key);
+      }).toList();
+      if (newPts.isNotEmpty) {
+        partnerTodayJourney.addAll(newPts);
+        partnerTodayJourney
+            .sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
         notifyListeners();
       }
     } catch (_) {}
@@ -646,6 +685,7 @@ class AppProvider extends ChangeNotifier {
     _myId = user!.id;
     SyncService.instance.init(
       token: r.token,
+      onReconnect: _onSocketReconnect,
       onIncomingMessage: _onIncoming,
       onPartnerBattery: _onPartnerBattery,
       onPartnerIsHome: _onPartnerIsHome,
@@ -674,6 +714,7 @@ class AppProvider extends ChangeNotifier {
     messages = await LocalStore.cachedMessages();
     SyncService.instance.init(
       token: r.token,
+      onReconnect: _onSocketReconnect,
       onIncomingMessage: _onIncoming,
       onPartnerBattery: _onPartnerBattery,
       onPartnerIsHome: _onPartnerIsHome,
@@ -702,6 +743,8 @@ class AppProvider extends ChangeNotifier {
     _insidePlaces.clear();
     _midnightTimer?.cancel();
     _midnightTimer = null;
+    _partnerTrailRefreshTimer?.cancel();
+    _partnerTrailRefreshTimer = null;
     await LocationService.instance.stopRecording();
     await SyncService.instance.dispose();
     await ApiService.clearToken();

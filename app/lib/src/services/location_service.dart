@@ -40,8 +40,8 @@ class LocationService {
     _recording = true;
     _sub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // metres — more responsive trail
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 10, // metres — balance between responsiveness and noise
       ),
     ).listen(_onPosition);
   }
@@ -53,6 +53,9 @@ class LocationService {
   }
 
   void _onPosition(Position p) async {
+    // Ignore readings with poor accuracy (>30m) — reduces indoor noise
+    if (p.accuracy > 30) return;
+
     final point = LocationPoint(
       latitude: p.latitude,
       longitude: p.longitude,

@@ -849,15 +849,8 @@ class AppProvider extends ChangeNotifier {
     todayJourney.clear();
     partnerTodayJourney.clear();
     notifyListeners();
-    // 2. Delete pending local GPS points recorded today
-    final pending = await LocalStore.pendingLocations();
-    final todayUids = pending
-        .where((p) => p.recordedAt.isAfter(midnight))
-        .map((p) => p.clientUid)
-        .toList();
-    if (todayUids.isNotEmpty) {
-      await LocalStore.clearLocations(todayUids);
-    }
+    // 2. Wipe ALL local pending GPS points (covers both uploaded and not-yet-uploaded)
+    await LocalStore.clearAllPendingLocations();
     // 3. Delete today's confirmed points from the server
     try {
       await _api.deleteMyLocations(from: midnight);

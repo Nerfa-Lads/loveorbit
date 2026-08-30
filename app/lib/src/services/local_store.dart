@@ -111,6 +111,12 @@ class LocalStore {
     );
   }
 
+  /// Delete ALL rows from locations_pending regardless of upload status.
+  static Future<void> clearAllPendingLocations() async {
+    final d = await db();
+    await d.delete('locations_pending');
+  }
+
   // ---------- messages ----------
   static Future<void> queueMessage(ChatMessage m) async {
     final d = await db();

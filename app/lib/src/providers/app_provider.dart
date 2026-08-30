@@ -377,12 +377,18 @@ class AppProvider extends ChangeNotifier {
   Future<void> _onSocketReconnect() async {
     SyncService.instance.emitPinColor(_pinBorderColor);
     SyncService.instance.emitPhoneActive(true);
-    if (myBattery >= 0) {
+    // Emit battery — read fresh value to be certain
+    try {
+      myBattery = await _battery.batteryLevel;
       final state = await _battery.batteryState;
       SyncService.instance.emitBattery(
         level: myBattery,
         state: _batteryStateString(state),
       );
+    } catch (_) {
+      if (myBattery >= 0) {
+        SyncService.instance.emitBattery(level: myBattery);
+      }
     }
     // Re-share home pin, saved places, and current place so partner always sees them
     if (homeLat != null && homeLng != null) {

@@ -453,12 +453,17 @@ class AppProvider extends ChangeNotifier {
       serverPoints = await _api.myLocations(from: midnight);
     } catch (_) {}
 
-    // Merge both lists, deduplicate by clientUid, sort oldest→newest
+    // Merge both lists, deduplicate by clientUid or id, sort oldest→newest
     final merged = <String, LocationPoint>{};
     for (final p in [...serverPoints, ...todayPending]) {
-      merged[p.clientUid.isNotEmpty
+      // Use clientUid if non-empty, otherwise fall back to server id,
+      // otherwise use timestamp (last resort — avoids overwriting all with same key)
+      final key = p.clientUid.isNotEmpty
           ? p.clientUid
-          : (p.id ?? p.recordedAt.toIso8601String())] = p;
+          : (p.id != null && p.id!.isNotEmpty
+              ? p.id!
+              : p.recordedAt.toIso8601String());
+      merged[key] = p;
     }
     final sorted = merged.values.toList()
       ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));

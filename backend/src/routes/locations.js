@@ -43,7 +43,7 @@ router.get('/me', auth, async (req, res) => {
     const from = req.query.from;
     const to = req.query.to;
     const { rows } = await query(
-      `SELECT id, latitude, longitude, accuracy, recorded_at
+      `SELECT id, latitude, longitude, accuracy, speed, heading, altitude, recorded_at, client_uid
        FROM locations WHERE user_id = $1
        AND ($2::timestamptz IS NULL OR recorded_at >= $2)
        AND ($3::timestamptz IS NULL OR recorded_at <= $3)
@@ -66,7 +66,7 @@ router.get('/partner', auth, async (req, res) => {
     const from = req.query.from;
     const to = req.query.to;
     const { rows } = await query(
-      `SELECT id, latitude, longitude, accuracy, recorded_at
+      `SELECT id, latitude, longitude, accuracy, speed, heading, altitude, recorded_at, client_uid
        FROM locations WHERE user_id = $1
        AND ($2::timestamptz IS NULL OR recorded_at >= $2)
        AND ($3::timestamptz IS NULL OR recorded_at <= $3)

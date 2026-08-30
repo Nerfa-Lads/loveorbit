@@ -432,6 +432,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 28),
 
             // ═══════════════════════════════════════════════
+            // TRACKING
+            // ═══════════════════════════════════════════════
+            const _SectionHeader('Tracking'),
+            const SizedBox(height: 10),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.orange.withValues(alpha: 0.12),
+                  child:
+                      const Icon(Icons.route, size: 18, color: Colors.orange),
+                ),
+                title: const Text('Clear today\'s trail',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Deletes your GPS trail recorded today and starts fresh'),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () async {
+                  final provider = context.read<AppProvider>();
+                  final messenger = ScaffoldMessenger.of(context);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Clear today\'s trail?'),
+                      content: const Text(
+                          'This removes your GPS trail from today. Your partner\'s trail is unaffected. This cannot be undone.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await provider.clearTodayTrail();
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Today\'s trail cleared.')),
+                    );
+                  }
+                },
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ═══════════════════════════════════════════════
             // ABOUT
             // ═══════════════════════════════════════════════
             const _SectionHeader('About'),

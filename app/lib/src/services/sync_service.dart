@@ -31,7 +31,6 @@ class SyncService {
   void init({
     String? token,
     void Function()? onReconnect,
-    void Function(ChatMessage)? onIncomingMessage,
     void Function(int level, String state)? onPartnerBattery,
     void Function(bool isHome)? onPartnerIsHome,
     void Function(double lat, double lng)? onPartnerHomePin,
@@ -63,7 +62,6 @@ class SyncService {
     if (token != null) {
       connectSocket(
         token,
-        onIncomingMessage,
         onReconnect: onReconnect,
         onPartnerBattery: onPartnerBattery,
         onPartnerIsHome: onPartnerIsHome,
@@ -79,8 +77,7 @@ class SyncService {
   }
 
   void connectSocket(
-    String token,
-    void Function(ChatMessage)? onIncomingMessage, {
+    String token, {
     void Function()? onReconnect,
     void Function(String displayName)? onPartnerArrived,
     void Function(int level, String state)? onPartnerBattery,
@@ -106,26 +103,6 @@ class SyncService {
     // ── On connect / reconnect — re-broadcast our status ──
     _socket!.onConnect((_) {
       onReconnect?.call();
-    });
-
-    // ── Incoming chat message ──────────────────────────────
-    _socket!.on('message:new', (data) {
-      try {
-        final m = ChatMessage.fromJson(data as Map<String, dynamic>);
-        LocalStore.cacheMessage(m);
-        onIncomingMessage?.call(m);
-      } catch (_) {}
-    });
-
-    _socket!.on('message:status', (data) {
-      try {
-        final d = data as Map<String, dynamic>;
-        final status = d['status'] as String;
-        final clientUid = d['client_uid'] as String?;
-        if (clientUid != null) {
-          LocalStore.updateMessageStatus(clientUid, status);
-        }
-      } catch (_) {}
     });
 
     _socket!.on('location:update', (data) {
@@ -220,10 +197,6 @@ class SyncService {
 
   // ── Emitters ──────────────────────────────────────────────
 
-  void emitMessage(ChatMessage m) {
-    _socket?.emit('message:send', m.toApiJson());
-  }
-
   void emitSharing({required bool sharing, required bool paused}) {
     _socket?.emit('sharing:toggle', {'sharing': sharing, 'paused': paused});
   }
@@ -286,8 +259,6 @@ class SyncService {
     _statusController.add(SyncStatus(_online, _syncing));
     try {
       await _syncLocations();
-      await _syncMedia();
-      await _syncMessages();
     } finally {
       _syncing = false;
       _statusController.add(SyncStatus(_online, _syncing));
@@ -301,33 +272,6 @@ class SyncService {
       final saved = await _api.uploadLocations(pending);
       await LocalStore.clearLocations(saved);
     } catch (_) {}
-  }
-
-  Future<void> _syncMessages() async {
-    final myId = (await _api.me()).id;
-    final pending = await LocalStore.pendingMessages(myId);
-    if (pending.isEmpty) return;
-    try {
-      final saved = await _api.sendMessages(pending);
-      await LocalStore.clearMessages(saved);
-      for (final m in pending) {
-        emitMessage(m);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _syncMedia() async {
-    final rows = await LocalStore.pendingMedia();
-    for (final r in rows) {
-      final localPath = r['local_path'] as String;
-      final clientUid = r['client_uid'] as String;
-      try {
-        await _api.uploadMedia(localPath);
-        await LocalStore.clearMedia(clientUid);
-      } catch (_) {
-        break;
-      }
-    }
   }
 
   Future<void> dispose() async {

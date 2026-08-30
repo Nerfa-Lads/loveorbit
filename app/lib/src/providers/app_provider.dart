@@ -48,8 +48,6 @@ class AppProvider extends ChangeNotifier {
   bool online = false;
   bool syncing = false;
   LocationPoint? partnerLatest;
-  List<ChatMessage> messages = [];
-  String? _myId;
   StreamSubscription<SyncStatus>? _syncSub;
 
   // ── Home pin ──────────────────────────────────────────────
@@ -169,15 +167,14 @@ class AppProvider extends ChangeNotifier {
     if (tok == null) return;
     try {
       user = await _api.me();
-      _myId = user!.id;
       await refreshCouple();
       await loadSharing();
-      await loadMessages();
-      messages = await LocalStore.cachedMessages();
+      _listenSync();
+      await _initBattery(); // must come before socket connect fires onReconnect
+      _startJourneyTracking();
       SyncService.instance.init(
         token: tok,
         onReconnect: _onSocketReconnect,
-        onIncomingMessage: _onIncoming,
         onPartnerBattery: _onPartnerBattery,
         onPartnerIsHome: _onPartnerIsHome,
         onPartnerHomePin: _onPartnerHomePin,
@@ -188,18 +185,6 @@ class AppProvider extends ChangeNotifier {
         onPartnerPlaceArrived: _onPartnerPlaceArrived,
         onPartnerMovement: _onPartnerMovement,
       );
-      _listenSync();
-      await _initBattery();
-      _startJourneyTracking();
-      // Share our pin color, active state, home pin, and places on connect
-      SyncService.instance.emitPinColor(_pinBorderColor);
-      SyncService.instance.emitPhoneActive(true);
-      if (homeLat != null && homeLng != null) {
-        SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
-      }
-      if (savedPlaces.isNotEmpty) {
-        SyncService.instance.emitPlaces(savedPlaces);
-      }
       notifyListeners();
     } catch (e) {
       final msg = e.toString();
@@ -695,11 +680,12 @@ class AppProvider extends ChangeNotifier {
     final r = await _api.register(
         username: username, password: password, displayName: name);
     user = r.user;
-    _myId = user!.id;
+    _listenSync();
+    await _initBattery(); // battery must be ready before onConnect fires
+    _startJourneyTracking();
     SyncService.instance.init(
       token: r.token,
       onReconnect: _onSocketReconnect,
-      onIncomingMessage: _onIncoming,
       onPartnerBattery: _onPartnerBattery,
       onPartnerIsHome: _onPartnerIsHome,
       onPartnerHomePin: _onPartnerHomePin,
@@ -710,31 +696,20 @@ class AppProvider extends ChangeNotifier {
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
       onPartnerMovement: _onPartnerMovement,
     );
-    _listenSync();
-    await _initBattery();
-    _startJourneyTracking();
-    SyncService.instance.emitPinColor(_pinBorderColor);
-    SyncService.instance.emitPhoneActive(true);
-    if (homeLat != null && homeLng != null) {
-      SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
-    }
-    if (savedPlaces.isNotEmpty) {
-      SyncService.instance.emitPlaces(savedPlaces);
-    }
     notifyListeners();
   }
 
   Future<void> login(String username, String password) async {
     final r = await _api.login(username: username, password: password);
     user = r.user;
-    _myId = user!.id;
     await refreshCouple();
     await loadSharing();
-    messages = await LocalStore.cachedMessages();
+    _listenSync();
+    await _initBattery(); // battery must be ready before onConnect fires
+    _startJourneyTracking();
     SyncService.instance.init(
       token: r.token,
       onReconnect: _onSocketReconnect,
-      onIncomingMessage: _onIncoming,
       onPartnerBattery: _onPartnerBattery,
       onPartnerIsHome: _onPartnerIsHome,
       onPartnerHomePin: _onPartnerHomePin,
@@ -745,17 +720,6 @@ class AppProvider extends ChangeNotifier {
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
       onPartnerMovement: _onPartnerMovement,
     );
-    _listenSync();
-    await _initBattery();
-    _startJourneyTracking();
-    SyncService.instance.emitPinColor(_pinBorderColor);
-    SyncService.instance.emitPhoneActive(true);
-    if (homeLat != null && homeLng != null) {
-      SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
-    }
-    if (savedPlaces.isNotEmpty) {
-      SyncService.instance.emitPlaces(savedPlaces);
-    }
     notifyListeners();
   }
 
@@ -776,7 +740,6 @@ class AppProvider extends ChangeNotifier {
     user = null;
     couple = null;
     partner = null;
-    messages = [];
     partnerBattery = -1;
     partnerIsHome = false;
     partnerHomeLat = null;
@@ -863,76 +826,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Messages ──────────────────────────────────────────────
-  Future<void> loadMessages() async {
-    try {
-      final m = await _api.messages(limit: 100);
-      messages = m;
-      for (final msg in m) {
-        await LocalStore.cacheMessage(msg);
-      }
-      notifyListeners();
-    } catch (_) {}
-  }
-
-  Future<void> sendMessage(String body) async {
-    if (partner == null) return;
-    final m = ChatMessage(
-      senderId: _myId!,
-      receiverId: partner!.id,
-      body: body,
-      status: 'pending',
-      createdAt: DateTime.now(),
-      clientUid: _uuid(),
-    );
-    await LocalStore.queueMessage(m);
-    messages = [...messages, m];
-    notifyListeners();
-    if (online) {
-      try {
-        SyncService.instance.emitMessage(m);
-        final saved = await _api.sendMessages([m]);
-        if (saved.contains(m.clientUid)) {
-          await LocalStore.clearMessages([m.clientUid]);
-        }
-      } catch (_) {}
-    }
-  }
-
-  /// Send a pre-built voice message (media already uploaded).
-  Future<void> sendVoiceMessage(ChatMessage m) async {
-    await LocalStore.queueMessage(m);
-    messages = [...messages, m];
-    notifyListeners();
-    if (online) {
-      try {
-        SyncService.instance.emitMessage(m);
-        final saved = await _api.sendMessages([m]);
-        if (saved.contains(m.clientUid)) {
-          await LocalStore.clearMessages([m.clientUid]);
-        }
-      } catch (_) {}
-    }
-  }
-
-  void _onIncoming(ChatMessage m) {
-    if (m.receiverId != _myId) return;
-    messages = [...messages, m];
-    notifyListeners();
-    NotificationService.notify(
-      title: partner?.displayName ?? 'LoveOrbit',
-      body: m.isVoice
-          ? '🎤 Voice note'
-          : (m.isPhoto ? 'Sent a photo 📷' : (m.body ?? '')),
-    );
-    _api.markStatus([m.id!], 'delivered');
-  }
-
-  String _uuid() {
-    return DateTime.now().microsecondsSinceEpoch.toString() +
-        (partner?.id.hashCode ?? 0).toString();
-  }
-
   void _listenSync() {
     _syncSub?.cancel();
     _syncSub = SyncService.instance.status.listen((s) {
@@ -945,6 +838,30 @@ class AppProvider extends ChangeNotifier {
   // ── History ───────────────────────────────────────────────
   Future<void> deleteMyHistory() async {
     await _api.deleteMyLocations();
+  }
+
+  /// Clear today's trail — wipes in-memory lists, local pending queue,
+  /// and deletes today's points from the server.
+  Future<void> clearTodayTrail() async {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day);
+    // 1. Clear in-memory trails immediately
+    todayJourney.clear();
+    partnerTodayJourney.clear();
+    notifyListeners();
+    // 2. Delete pending local GPS points recorded today
+    final pending = await LocalStore.pendingLocations();
+    final todayUids = pending
+        .where((p) => p.recordedAt.isAfter(midnight))
+        .map((p) => p.clientUid)
+        .toList();
+    if (todayUids.isNotEmpty) {
+      await LocalStore.clearLocations(todayUids);
+    }
+    // 3. Delete today's confirmed points from the server
+    try {
+      await _api.deleteMyLocations(from: midnight);
+    } catch (_) {}
   }
 
   // ── Partner location ──────────────────────────────────────

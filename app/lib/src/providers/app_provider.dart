@@ -90,6 +90,12 @@ class AppProvider extends ChangeNotifier {
   /// Partner's named places (received via socket).
   List<SavedPlace> partnerPlaces = [];
 
+  /// The label of the saved place I'm currently inside (null if none).
+  String? myCurrentPlace;
+
+  /// The label of the saved place partner is currently inside (null if none).
+  String? partnerCurrentPlace;
+
   // ── Today's journey ───────────────────────────────────────
   /// GPS breadcrumbs recorded since midnight local time.
   /// Used to draw the day's route line on the map.
@@ -184,6 +190,7 @@ class AppProvider extends ChangeNotifier {
         onPartnerPhoneActive: _onPartnerPhoneActive,
         onPartnerPlaceArrived: _onPartnerPlaceArrived,
         onPartnerMovement: _onPartnerMovement,
+        onPartnerCurrentPlace: _onPartnerCurrentPlace,
       );
       notifyListeners();
     } catch (e) {
@@ -334,10 +341,14 @@ class AppProvider extends ChangeNotifier {
 
   void _onPartnerPlaceArrived(String label) {
     if (partner == null) return;
-    NotificationService.notify(
-      title: '${partner!.displayName} arrived at $label',
-      body: 'They just reached one of their saved places.',
-    );
+    partnerCurrentPlace = label.isNotEmpty ? label : null;
+    notifyListeners();
+    if (label.isNotEmpty) {
+      NotificationService.notify(
+        title: '${partner!.displayName} arrived at $label',
+        body: 'They just reached one of their saved places.',
+      );
+    }
   }
 
   /// Derive movement mode from GPS speed (m/s).
@@ -357,6 +368,11 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onPartnerCurrentPlace(String? label) {
+    partnerCurrentPlace = label;
+    notifyListeners();
+  }
+
   /// Called when socket reconnects — re-broadcast all our status to partner.
   Future<void> _onSocketReconnect() async {
     SyncService.instance.emitPinColor(_pinBorderColor);
@@ -368,13 +384,14 @@ class AppProvider extends ChangeNotifier {
         state: _batteryStateString(state),
       );
     }
-    // Re-share home pin and saved places so partner always sees them
+    // Re-share home pin, saved places, and current place so partner always sees them
     if (homeLat != null && homeLng != null) {
       SyncService.instance.emitHomePin(lat: homeLat!, lng: homeLng!);
     }
-    if (savedPlaces.isNotEmpty) {
-      SyncService.instance.emitPlaces(savedPlaces);
-    }
+    // Always emit places (even empty) so partner's stale data is cleared
+    SyncService.instance.emitPlaces(savedPlaces);
+    // Re-emit current place label
+    SyncService.instance.emitCurrentPlace(myCurrentPlace);
     // Also refresh partner's today trail in case we missed socket events
     _seedPartnerTodayJourney();
   }
@@ -539,12 +556,14 @@ class AppProvider extends ChangeNotifier {
   void _checkGeofences(double lat, double lng) {
     const double radius = 200; // metres
     final currentlyInside = <String>{};
+    String? currentPlaceLabel;
 
     // Check home pin
     if (homeLat != null && homeLng != null) {
       final d = _distanceMeters(lat, lng, homeLat!, homeLng!);
       if (d < radius) {
         currentlyInside.add('__home__');
+        currentPlaceLabel ??= 'Home';
         if (!_insidePlaces.contains('__home__')) {
           // Just entered home
           SyncService.instance.emitHomeArrived();
@@ -561,6 +580,7 @@ class AppProvider extends ChangeNotifier {
       final d = _distanceMeters(lat, lng, place.lat, place.lng);
       if (d < radius) {
         currentlyInside.add(place.id);
+        currentPlaceLabel ??= place.label;
         if (!_insidePlaces.contains(place.id)) {
           // Just entered this place — notify locally and tell partner
           SyncService.instance.emitPlaceArrived(place.label);
@@ -575,6 +595,13 @@ class AppProvider extends ChangeNotifier {
     _insidePlaces
       ..clear()
       ..addAll(currentlyInside);
+
+    // Update current place label — emit to partner if it changed
+    if (currentPlaceLabel != myCurrentPlace) {
+      myCurrentPlace = currentPlaceLabel;
+      SyncService.instance.emitCurrentPlace(currentPlaceLabel);
+      notifyListeners();
+    }
   }
 
   /// Add a partner location point to today's trail.
@@ -695,6 +722,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerPhoneActive: _onPartnerPhoneActive,
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
       onPartnerMovement: _onPartnerMovement,
+      onPartnerCurrentPlace: _onPartnerCurrentPlace,
     );
     notifyListeners();
   }
@@ -719,6 +747,7 @@ class AppProvider extends ChangeNotifier {
       onPartnerPhoneActive: _onPartnerPhoneActive,
       onPartnerPlaceArrived: _onPartnerPlaceArrived,
       onPartnerMovement: _onPartnerMovement,
+      onPartnerCurrentPlace: _onPartnerCurrentPlace,
     );
     notifyListeners();
   }
@@ -750,6 +779,8 @@ class AppProvider extends ChangeNotifier {
     partnerPhoneActive = null;
     partnerMovementMode = MovementMode.unknown;
     myMovementMode = MovementMode.unknown;
+    myCurrentPlace = null;
+    partnerCurrentPlace = null;
     notifyListeners();
   }
 

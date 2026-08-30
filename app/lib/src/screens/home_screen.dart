@@ -322,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         placeName: _myPlaceName,
                         borderColor: p.pinBorderColor,
                         timeAgo: null,
-                        isHome: p.amIHome,
+                        currentPlace: p.myCurrentPlace,
                         battery: p.myBattery,
                         batteryState: BatteryState.unknown,
                         phoneActive: true,
@@ -339,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         placeName: _partnerPlaceName,
                         borderColor: Theme.of(context).colorScheme.primary,
                         timeAgo: partnerPt.recordedAt,
-                        isHome: p.partnerIsHome,
+                        currentPlace: p.partnerCurrentPlace,
                         battery: p.partnerBattery,
                         batteryState: p.partnerBatteryState,
                         phoneActive: p.partnerPhoneActive,
@@ -387,7 +387,7 @@ class _LocationCard extends StatelessWidget {
   final String placeName;
   final Color borderColor;
   final DateTime? timeAgo;
-  final bool isHome;
+  final String? currentPlace; // named place user is currently inside
   final int battery;
   final BatteryState batteryState;
   final bool? phoneActive;
@@ -399,7 +399,7 @@ class _LocationCard extends StatelessWidget {
     required this.placeName,
     required this.borderColor,
     required this.timeAgo,
-    required this.isHome,
+    required this.currentPlace,
     required this.battery,
     required this.batteryState,
     this.phoneActive,
@@ -452,8 +452,8 @@ class _LocationCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 _MovementBadge(mode: movementMode),
               ],
-              // At-home badge
-              if (isHome) ...[
+              // At-place badge — shows the named place user is currently inside
+              if (currentPlace != null) ...[
                 const SizedBox(width: 4),
                 Container(
                   padding:
@@ -462,16 +462,22 @@ class _LocationCard extends StatelessWidget {
                     color: Colors.green.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.home, size: 12, color: Colors.green),
-                      SizedBox(width: 2),
-                      Text('Home',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600)),
+                      Icon(
+                        currentPlace == 'Home' ? Icons.home : Icons.place,
+                        size: 12,
+                        color: Colors.green,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        currentPlace!,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                 ),

@@ -40,6 +40,7 @@ class SyncService {
     void Function(bool active)? onPartnerPhoneActive,
     void Function(String label)? onPartnerPlaceArrived,
     void Function(String mode)? onPartnerMovement,
+    void Function(String? label)? onPartnerCurrentPlace,
   }) {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final connected = !results.contains(ConnectivityResult.none);
@@ -72,6 +73,7 @@ class SyncService {
         onPartnerPhoneActive: onPartnerPhoneActive,
         onPartnerPlaceArrived: onPartnerPlaceArrived,
         onPartnerMovement: onPartnerMovement,
+        onPartnerCurrentPlace: onPartnerCurrentPlace,
       );
     }
   }
@@ -89,6 +91,7 @@ class SyncService {
     void Function(bool active)? onPartnerPhoneActive,
     void Function(String label)? onPartnerPlaceArrived,
     void Function(String mode)? onPartnerMovement,
+    void Function(String? label)? onPartnerCurrentPlace,
   }) {
     _socket?.dispose();
     _socket = io.io(
@@ -185,6 +188,15 @@ class SyncService {
       } catch (_) {}
     });
 
+    // ── Partner's current place (sent on connect + on change) ─
+    _socket!.on('current:place', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        final label = d['label'] as String?;
+        onPartnerCurrentPlace?.call(label?.isNotEmpty == true ? label : null);
+      } catch (_) {}
+    });
+
     // ── Partner movement mode ──────────────────────────────
     _socket!.on('movement:update', (data) {
       try {
@@ -250,6 +262,11 @@ class SyncService {
   /// Broadcast whether the app is in the foreground (phone is active/in-use).
   void emitPhoneActive(bool active) {
     _socket?.emit('phone:active', {'active': active});
+  }
+
+  /// Broadcast which named place the user is currently inside (null = left all places).
+  void emitCurrentPlace(String? label) {
+    _socket?.emit('current:place', {'label': label ?? ''});
   }
 
   // ── Sync ──────────────────────────────────────────────────

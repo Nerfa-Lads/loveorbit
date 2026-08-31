@@ -53,8 +53,9 @@ class LocationService {
   }
 
   void _onPosition(Position p) async {
-    // Ignore readings with poor accuracy (>30m) — reduces indoor noise
-    if (p.accuracy > 30) return;
+    // Ignore readings with very poor accuracy (>60m) — filters extreme outliers
+    // but still keeps indoor/weak-signal readings (30m was too strict).
+    if (p.accuracy > 60) return;
 
     final point = LocationPoint(
       latitude: p.latitude,

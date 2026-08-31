@@ -13,9 +13,13 @@ async function assertPartner(req) {
 // POST /api/locations  (batch upsert from offline sync)  body: { points: [...] }
 router.post('/', auth, async (req, res) => {
   try {
-    await assertPartner(req);
+    // Allow upload even if not currently in an active couple —
+    // points are scoped to the user and will appear in history once connected.
     const points = Array.isArray(req.body?.points) ? req.body.points : [];
     if (points.length === 0) return res.json({ saved: 0 });
+
+    // Use couple_id if available, else null — location rows still get saved.
+    const coupleId = req.user.couple_id || null;
 
     const saved = [];
     for (const p of points) {
@@ -24,7 +28,7 @@ router.post('/', auth, async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (user_id, client_uid) DO NOTHING
          RETURNING id, client_uid`,
-        [req.user.id, req.user.couple_id, p.latitude, p.longitude, p.accuracy ?? null, p.speed ?? null,
+        [req.user.id, coupleId, p.latitude, p.longitude, p.accuracy ?? null, p.speed ?? null,
          p.heading ?? null, p.altitude ?? null, p.recorded_at, p.client_uid],
       );
       if (rows[0]) saved.push(rows[0].client_uid);

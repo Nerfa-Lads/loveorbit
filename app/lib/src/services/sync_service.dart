@@ -105,6 +105,13 @@ class SyncService {
 
     // ── On connect / reconnect — re-broadcast our status ──
     _socket!.onConnect((_) {
+      // Ask partner to re-send their latest data (places, home pin, battery, etc.)
+      _socket?.emit('sync:request', {});
+      onReconnect?.call();
+    });
+
+    // ── Partner requested a full sync — re-broadcast all our state ───
+    _socket!.on('sync:request', (_) {
       onReconnect?.call();
     });
 
@@ -255,8 +262,8 @@ class SyncService {
   }
 
   /// Broadcast current movement mode to partner.
-  void emitMovement(dynamic mode) {
-    _socket?.emit('movement:update', {'mode': (mode as dynamic).name});
+  void emitMovement(String modeName) {
+    _socket?.emit('movement:update', {'mode': modeName});
   }
 
   /// Broadcast whether the app is in the foreground (phone is active/in-use).

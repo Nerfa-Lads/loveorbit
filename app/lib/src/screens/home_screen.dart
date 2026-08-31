@@ -337,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: partner.displayName,
                         avatarUrl: partner.avatarUrl,
                         placeName: _partnerPlaceName,
-                        borderColor: Theme.of(context).colorScheme.primary,
+                        borderColor: p.partnerPinBorderColor,
                         timeAgo: partnerPt.recordedAt,
                         currentPlace: p.partnerCurrentPlace,
                         battery: p.partnerBattery,
@@ -441,47 +441,60 @@ class _LocationCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // Phone active status
-              if (phoneActive != null) ...[
-                const SizedBox(width: 4),
-                _PhoneStatusBadge(active: phoneActive!),
-              ],
-              // Movement badge
-              if (movementMode != MovementMode.unknown &&
-                  movementMode != MovementMode.still) ...[
-                const SizedBox(width: 4),
-                _MovementBadge(mode: movementMode),
-              ],
-              // At-place badge — shows the named place user is currently inside
-              if (currentPlace != null) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        currentPlace == 'Home' ? Icons.home : Icons.place,
-                        size: 12,
-                        color: Colors.green,
+              // Badges — all wrapped so they can't overflow
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Phone active status
+                  if (phoneActive != null) ...[
+                    const SizedBox(width: 4),
+                    _PhoneStatusBadge(active: phoneActive!),
+                  ],
+                  // Movement badge
+                  if (movementMode != MovementMode.unknown &&
+                      movementMode != MovementMode.still) ...[
+                    const SizedBox(width: 4),
+                    _MovementBadge(mode: movementMode),
+                  ],
+                  // At-place badge
+                  if (currentPlace != null) ...[
+                    const SizedBox(width: 4),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 72),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              currentPlace == 'Home' ? Icons.home : Icons.place,
+                              size: 11,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                currentPlace!,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 2),
-                      Text(
-                        currentPlace!,
-                        style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ],
+                ],
+              ),
             ]),
             const SizedBox(height: 8),
 

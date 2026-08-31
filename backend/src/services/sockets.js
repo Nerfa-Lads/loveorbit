@@ -100,6 +100,14 @@ export function attachSockets(httpServer) {
       });
     });
 
+    // ── Current place ──────────────────────────────────────
+    socket.on('current:place', (data) => toPartner('current:place', data));
+
+    // ── Sync request: ask partner to re-broadcast all their state ─────
+    // Emitted by a client right after it connects so it receives the
+    // partner's latest home pin, places, battery, pin color, etc.
+    socket.on('sync:request', () => toPartner('sync:request', {}));
+
     socket.on('disconnect', () => {});
   });
 

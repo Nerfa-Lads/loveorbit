@@ -398,6 +398,8 @@ class AppProvider extends ChangeNotifier {
     SyncService.instance.emitPlaces(savedPlaces);
     // Re-emit current place label
     SyncService.instance.emitCurrentPlace(myCurrentPlace);
+    // Re-emit movement mode
+    SyncService.instance.emitMovement(myMovementMode.name);
     // Also refresh partner's today trail in case we missed socket events
     _seedPartnerTodayJourney();
   }
@@ -463,7 +465,7 @@ class AppProvider extends ChangeNotifier {
         final mode = _speedToMode(pt.speed ?? 0);
         if (mode != myMovementMode) {
           myMovementMode = mode;
-          SyncService.instance.emitMovement(mode);
+          SyncService.instance.emitMovement(mode.name);
         }
         notifyListeners();
         // Run geofence check on every new GPS point too
@@ -503,9 +505,16 @@ class AppProvider extends ChangeNotifier {
 
     // Merge both lists, deduplicate by clientUid or id, sort oldest→newest
     final merged = <String, LocationPoint>{};
+    // Preserve any live points already added by the GPS stream
+    for (final p in todayJourney) {
+      final key = p.clientUid.isNotEmpty
+          ? p.clientUid
+          : (p.id != null && p.id!.isNotEmpty
+              ? p.id!
+              : p.recordedAt.toIso8601String());
+      merged[key] = p;
+    }
     for (final p in [...serverPoints, ...todayPending]) {
-      // Use clientUid if non-empty, otherwise fall back to server id,
-      // otherwise use timestamp (last resort — avoids overwriting all with same key)
       final key = p.clientUid.isNotEmpty
           ? p.clientUid
           : (p.id != null && p.id!.isNotEmpty
@@ -518,7 +527,9 @@ class AppProvider extends ChangeNotifier {
 
     if (sorted.isNotEmpty) {
       debugPrint('[Trail] Seeding ${sorted.length} points into todayJourney');
-      todayJourney.addAll(sorted);
+      todayJourney
+        ..clear()
+        ..addAll(sorted);
       notifyListeners();
     } else {
       debugPrint(
@@ -838,6 +849,11 @@ class AppProvider extends ChangeNotifier {
   Future<void> loadSharing() async {
     final s = await _api.getSharing();
     sharing = s.sharing;
+    // If sharing was active when the app was last closed, restart GPS recording
+    if (sharing) {
+      await LocationService.instance.startRecording();
+      _startGeofenceTimer();
+    }
     notifyListeners();
   }
 
